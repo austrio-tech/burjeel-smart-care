@@ -71,3 +71,13 @@ export const confirmPasswordReset = async (token, newPassword) => {
     throw new Error('Password reset confirmation failed');
   }
 };
+
+export const getUsers = async (role = '') => {
+  try {
+    const url = role ? `/auth/users?role=${role}` : '/auth/users';
+    const response = await api.get(url);
+    return response;
+  } catch (error) {
+    throw new Error('Failed to fetch users');
+  }
+};

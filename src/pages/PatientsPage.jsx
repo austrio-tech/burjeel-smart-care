@@ -3,18 +3,31 @@ import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import Table from '../components/common/Table';
 import Input from '../components/common/Input';
+import Select from '../components/common/Select';
 import Modal from '../components/common/Modal';
-import { FiSearch, FiPlus, FiUser, FiMail, FiLock, FiPhone, FiFileText, FiCalendar } from 'react-icons/fi';
+import { FiSearch, FiPlus, FiUser, FiMail, FiLock, FiPhone, FiFileText, FiCalendar, FiEdit2, FiTrash2 } from 'react-icons/fi';
+import ExportMenu from '../components/common/ExportMenu';
+import { useReportExport } from '../hooks/useReportExport';
 import { AlertContext } from '../contexts/AlertContext';
 import * as patientService from '../services/patientService';
+import * as userService from '../services/userService';
 
 export default function PatientsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [patients, setPatients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [editingUserId, setEditingUserId] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [passwordResetId, setPasswordResetId] = useState(null);
+  const [resetPasswordValue, setResetPasswordValue] = useState('');
+  
   const { error: showError, success: showSuccess } = useContext(AlertContext);
+  const { exportData, isExporting } = useReportExport();
 
   const [formData, setFormData] = useState({
     username: '',
@@ -24,6 +37,7 @@ export default function PatientsPage() {
     phone_number: '',
     medical_record_ref: '',
     registered_date: new Date().toISOString().split('T')[0],
+    gender: ''
   });
 
   const columns = [
@@ -60,9 +74,23 @@ export default function PatientsPage() {
     e.preventDefault();
     setSubmitting(true);
     try {
-      await patientService.createPatient(formData);
-      showSuccess('Patient added successfully');
+      if (isEditModalOpen) {
+        await userService.updateUser(editingUserId, {
+          username: formData.username,
+          email: formData.email,
+          gender: formData.gender,
+          full_name: formData.full_name,
+          phone_number: formData.phone_number,
+          medical_record_ref: formData.medical_record_ref,
+          registered_date: formData.registered_date
+        });
+        showSuccess('Patient updated successfully');
+      } else {
+        await patientService.createPatient(formData);
+        showSuccess('Patient added successfully');
+      }
       setIsModalOpen(false);
+      setIsEditModalOpen(false);
       setFormData({
         username: '',
         email: '',
@@ -71,12 +99,54 @@ export default function PatientsPage() {
         phone_number: '',
         medical_record_ref: '',
         registered_date: new Date().toISOString().split('T')[0],
+        gender: ''
       });
       fetchData();
     } catch (err) {
-      showError(err.message || 'Failed to add patient');
+      showError(err.message || 'Failed to save patient');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handlePasswordResetSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      await userService.resetPassword(passwordResetId, resetPasswordValue);
+      showSuccess('Password reset successfully!');
+      setShowPasswordModal(false);
+      setResetPasswordValue('');
+    } catch (err) {
+      showError(`Failed to reset password: ${err.response?.data?.detail || err.message}`);
+    }
+  };
+
+  const handleEditClick = (patient) => {
+    setFormData({
+      username: patient.username || '',
+      email: patient.email || '',
+      password: '',
+      gender: patient.gender || '',
+      full_name: patient.full_name || '',
+      phone_number: patient.phone_number || '',
+      medical_record_ref: patient.medical_record_ref || '',
+      registered_date: patient.registered_date ? patient.registered_date.split('T')[0] : new Date().toISOString().split('T')[0],
+    });
+    setEditingId(patient.patient_id);
+    setEditingUserId(patient.user_id);
+    setIsEditModalOpen(true);
+    setIsModalOpen(true);
+  };
+
+  const handleDeleteClick = async (id) => {
+    if (window.confirm("Are you sure you want to delete this patient?")) {
+      try {
+        await patientService.deletePatient(id);
+        showSuccess('Patient deleted successfully');
+        fetchData();
+      } catch (err) {
+        showError('Failed to delete patient');
+      }
     }
   };
 
@@ -86,40 +156,106 @@ export default function PatientsPage() {
     p.medical_record_ref?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const handleExport = (format) => {
+    exportData({
+      data: filteredPatients,
+      columns,
+      filename: `Patients_Directory_${new Date().toISOString().split('T')[0]}`,
+      format
+    });
+  };
+
   if (loading && patients.length === 0) return <div className="flex items-center justify-center h-full">Loading...</div>;
 
   return (
     <div className="space-y-8">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row sm:justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-4xl font-bold text-secondary-900 mb-2">Patient Management</h1>
+          <h1 className="text-3xl sm:text-4xl font-bold text-secondary-900 mb-2">Patient Management</h1>
           <p className="text-secondary-600">View and manage hospital patients</p>
         </div>
-        <Button variant="primary" icon={FiPlus} onClick={() => setIsModalOpen(true)}>
+        <Button variant="primary" icon={FiPlus} onClick={() => {
+          setEditingId(null);
+          setEditingUserId(null);
+          setIsEditModalOpen(false);
+          setFormData({
+            username: '', email: '', password: '', full_name: '', phone_number: '', medical_record_ref: '', registered_date: new Date().toISOString().split('T')[0], gender: ''
+          });
+          setIsModalOpen(true);
+        }} className="w-full sm:w-auto">
           Add Patient
         </Button>
       </div>
 
       <Card>
-        <div className="flex gap-4">
+        <div className="flex flex-col sm:flex-row gap-4">
           <Input
             placeholder="Search by name, ID or MRN..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             icon={FiSearch}
-            className="flex-1"
+            className="flex-1 w-full"
           />
+          <div className="self-end pb-1 w-full sm:w-auto [&>div]:w-full [&_button]:w-full">
+            <ExportMenu onExport={handleExport} isExporting={isExporting} />
+          </div>
         </div>
       </Card>
 
-      <Card>
-        <Table columns={columns} data={filteredPatients} hover striped />
-      </Card>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {filteredPatients.map((patient) => {
+          let avatarUrl = patient.profile_picture_url;
+          if (!avatarUrl) {
+            if (patient.gender === 'female') {
+              avatarUrl = 'https://ui-avatars.com/api/?name=' + encodeURIComponent(patient.full_name) + '&background=f9a8d4&color=831843';
+            } else {
+              avatarUrl = 'https://ui-avatars.com/api/?name=' + encodeURIComponent(patient.full_name) + '&background=bfdbfe&color=1e3a8a';
+            }
+          }
+
+          return (
+            <Card key={patient.patient_id} className="hover:shadow-lg transition-shadow">
+              <div className="flex items-start gap-4">
+                <img 
+                  src={avatarUrl} 
+                  alt={patient.full_name} 
+                  className="w-16 h-16 rounded-full object-cover border-2 border-secondary-200"
+                />
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-lg font-bold text-secondary-900 truncate">{patient.full_name}</h3>
+                  <p className="text-sm text-secondary-500 font-medium mb-2">MRN: {patient.medical_record_ref || 'N/A'}</p>
+                  
+                  <div className="space-y-1">
+                    <div className="flex items-center text-sm text-secondary-600">
+                      <FiPhone className="w-4 h-4 mr-2" />
+                      {patient.phone_number}
+                    </div>
+                    <div className="flex items-center text-sm text-secondary-600">
+                      <FiCalendar className="w-4 h-4 mr-2" />
+                      {patient.registered_date ? new Date(patient.registered_date).toLocaleDateString() : 'Unknown'}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="mt-4 pt-4 border-t border-gray-100 flex justify-end gap-2">
+                <Button variant="outline" size="sm" icon={FiEdit2} onClick={() => handleEditClick(patient)}>Edit</Button>
+                <Button variant="outline" size="sm" onClick={() => { setPasswordResetId(patient.user_id); setShowPasswordModal(true); setResetPasswordValue(''); }}>Password</Button>
+                <Button variant="danger" size="sm" icon={FiTrash2} onClick={() => handleDeleteClick(patient.patient_id)}>Delete</Button>
+              </div>
+            </Card>
+          );
+        })}
+        {filteredPatients.length === 0 && (
+          <div className="col-span-full py-12 text-center text-secondary-500">
+            No patients found matching your search.
+          </div>
+        )}
+      </div>
 
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        title="Add New Patient"
+        title={isEditModalOpen ? "Edit Patient" : "Add New Patient"}
         size="lg"
       >
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -140,6 +276,7 @@ export default function PatientsPage() {
               icon={FiPhone}
               required
             />
+            
             <Input
               label="Username"
               name="username"
@@ -157,15 +294,18 @@ export default function PatientsPage() {
               icon={FiMail}
               required
             />
-            <Input
-              label="Password"
-              type="password"
-              name="password"
-              value={formData.password}
-              onChange={handleInputChange}
-              icon={FiLock}
-              required
-            />
+            {!isEditModalOpen && (
+              <Input
+                label="Password"
+                type="password"
+                name="password"
+                value={formData.password}
+                onChange={handleInputChange}
+                icon={FiLock}
+                required
+              />
+            )}
+
             <Input
               label="Medical Record Ref (MRN)"
               name="medical_record_ref"
@@ -182,14 +322,44 @@ export default function PatientsPage() {
               icon={FiCalendar}
               required
             />
+            <Select
+              label="Gender"
+              name="gender"
+              value={formData.gender || ''}
+              onChange={handleInputChange}
+              options={[
+                { value: '', label: 'Select Gender' },
+                { value: 'male', label: 'Male' },
+                { value: 'female', label: 'Female' },
+                { value: 'other', label: 'Other' },
+              ]}
+            />
           </div>
           <div className="flex justify-end gap-3 mt-6">
-            <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)}>
+            <Button type="button" variant="outline" onClick={() => { setIsModalOpen(false); setIsEditModalOpen(false); }}>
               Cancel
             </Button>
             <Button type="submit" variant="primary" loading={submitting}>
-              Create Patient
+              {isEditModalOpen ? "Update Patient" : "Create Patient"}
             </Button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal isOpen={showPasswordModal} onClose={() => setShowPasswordModal(false)} title="Reset Password" size="md">
+        <form onSubmit={handlePasswordResetSubmit}>
+          <div className="space-y-4">
+            <Input 
+              label="New Password" 
+              type="password" 
+              value={resetPasswordValue} 
+              onChange={(e) => setResetPasswordValue(e.target.value)} 
+              required 
+            />
+          </div>
+          <div className="flex justify-end gap-3 mt-6">
+            <Button type="button" variant="outline" onClick={() => setShowPasswordModal(false)}>Cancel</Button>
+            <Button type="submit" variant="primary">Reset Password</Button>
           </div>
         </form>
       </Modal>

@@ -33,11 +33,15 @@ export default function Navbar({ sidebarOpen, onToggleSidebar, onLogout }) {
           {/* User Menu */}
           <div className="flex items-center gap-3">
             <div className="hidden sm:block text-right">
-              <p className="text-sm font-semibold text-secondary-900">{user?.name}</p>
+              <p className="text-sm font-semibold text-secondary-900">{user?.username || user?.name}</p>
               <p className="text-xs text-secondary-500 capitalize">{user?.role}</p>
             </div>
-            <div className="w-10 h-10 bg-primary-600 rounded-full flex items-center justify-center text-white font-bold">
-              {user?.name?.charAt(0).toUpperCase()}
+            <div className="w-10 h-10 bg-primary-600 rounded-full flex items-center justify-center text-white font-bold overflow-hidden">
+              {user?.profile_picture_url ? (
+                <img src={user.profile_picture_url} alt={user.username || user.name} className="w-full h-full object-cover" />
+              ) : (
+                (user?.username || user?.name || 'U').charAt(0).toUpperCase()
+              )}
             </div>
           </div>
 

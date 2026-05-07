@@ -1,4 +1,3 @@
-```markdown
 # Burjeel Smart Care – Frontend (React)
 
 A responsive web application for the **Burjeel Smart Care** intelligent patient management and doctor appointment management system. Built with **React** and deployed on **Vercel**.
@@ -177,16 +176,3 @@ The `build` output will be auto‑detected by Vercel. Your React app will be liv
 4. Once approved, merge into `dev` and deploy to Vercel preview.
 
 ---
-
-## 📄 License
-
-This project is proprietary to Middle East College and Burjeel Hospital for academic use.
-
----
-
-**Developed by:** Seham Albulushi (20S20055)  
-**Supervisor:** Puttaswamy M. R.
-```
-
-Generic Instructions
-Read the instructions in README.md and build the complete project according to those specifications, explicitly skipping any optional testing sections. Implement the project using modern web technologies and frameworks, ensuring all user interfaces feature smooth animations and transitions. Make the entire application fully responsive across desktop, tablet, and mobile devices with a mobile-first approach, fluid layouts, and touch-friendly interactions. Deliver production-ready code with optimized assets, clean architecture, and comprehensive documentation.

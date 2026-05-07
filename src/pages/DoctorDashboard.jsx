@@ -1,6 +1,6 @@
 import { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FiUsers, FiBell, FiCheckCircle, FiTrendingUp } from 'react-icons/fi';
+import { FiUsers, FiCalendar, FiClock } from 'react-icons/fi';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import Table from '../components/common/Table';
@@ -10,18 +10,18 @@ import { useReportExport } from '../hooks/useReportExport';
 import { AlertContext } from '../contexts/AlertContext';
 import * as patientService from '../services/patientService';
 import * as reminderService from '../services/reminderService';
-import * as reportsService from '../services/reportsService';
+import { useAuth } from '../hooks/useAuth';
 
-export default function AdminDashboard() {
+export default function DoctorDashboard() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     totalPatients: 0,
-    remindersToday: 0,
-    attendanceRate: 0,
-    appointments: 0,
+    upcomingAppointments: 0,
+    myReminders: 0,
   });
-  const [recentReminders, setRecentReminders] = useState([]);
+  const [recentAppointments, setRecentAppointments] = useState([]);
   const { error } = useContext(AlertContext);
   const { exportData, isExporting } = useReportExport();
 
@@ -29,31 +29,27 @@ export default function AdminDashboard() {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const [patients, reminders, attendanceReport] = await Promise.all([
+        const [patients, reminders] = await Promise.all([
           patientService.getPatients(),
           reminderService.getReminders(),
-          reportsService.getAttendanceReport(),
         ]);
+
+        const today = new Date().toISOString().split('T')[0];
+        const upcoming = reminders.filter(r => r.reminder_type === 'doctor_visit' && r.scheduled_date && r.scheduled_date >= today);
 
         setStats({
           totalPatients: patients.length,
-          remindersToday: reminders.filter(r => {
-            const today = new Date().toISOString().split('T')[0];
-            return r.scheduled_date && r.scheduled_date.startsWith(today);
-          }).length,
-          attendanceRate: attendanceReport?.attendance_rate || 0,
-          appointments: attendanceReport?.total_attendances || 0,
+          upcomingAppointments: upcoming.length,
+          myReminders: reminders.length, // Already filtered by backend
         });
 
-        setRecentReminders(
-          reminders.slice(0, 10).map(r => {
+        setRecentAppointments(
+          upcoming.slice(0, 10).map(r => {
             const patient = patients.find(p => p.patient_id === r.patient_id);
             return {
               id: r.reminder_id,
               patientName: patient?.full_name || `Patient ${r.patient_id}`,
-              phone: patient?.phone_number || 'N/A',
-              success: r.success_sent || 0,
-              failed: r.failed_sent || 0,
+              status: r.success_sent > 0 ? 'Notified' : 'Pending',
               time: new Date(r.scheduled_date).toLocaleString('en-US', { timeZone: 'Asia/Muscat', hour12: true }),
             };
           })
@@ -71,31 +67,33 @@ export default function AdminDashboard() {
 
   const columns = [
     { key: 'patientName', label: 'Patient Name' },
-    { key: 'phone', label: 'Phone' },
+    { key: 'time', label: 'Time' },
     {
       key: 'status',
       label: 'Status',
-      render: (val, row) => (
-        <span className="text-xs font-semibold">
-          <span className="text-green-600 bg-green-100 px-2 py-1 rounded mr-1">S: {row.success}</span>
-          <span className="text-red-600 bg-red-100 px-2 py-1 rounded">F: {row.failed}</span>
+      render: (status) => (
+        <span
+          className={`px-3 py-1 rounded-full text-xs font-semibold ${
+            status === 'Notified'
+              ? 'bg-green-100 text-green-800'
+              : 'bg-yellow-100 text-yellow-800'
+          }`}
+        >
+          {status}
         </span>
       ),
     },
-    { key: 'time', label: 'Time' },
   ];
 
   const handleExport = (format) => {
     exportData({
-      data: recentReminders,
+      data: recentAppointments,
       columns: [
         { key: 'patientName', label: 'Patient Name' },
-        { key: 'phone', label: 'Phone' },
-        { key: 'success', label: 'Success Sent' },
-        { key: 'failed', label: 'Failed Sent' },
+        { key: 'status', label: 'Status' },
         { key: 'time', label: 'Time' },
       ],
-      filename: `AdminDashboard_Reminders_${new Date().toISOString().split('T')[0]}`,
+      filename: `DoctorDashboard_Appointments_${new Date().toISOString().split('T')[0]}`,
       format
     });
   };
@@ -105,16 +103,15 @@ export default function AdminDashboard() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-4xl font-bold text-secondary-900 mb-2">Dashboard</h1>
-        <p className="text-secondary-600">Welcome back! Here's what's happening with your hospital.</p>
+        <h1 className="text-4xl font-bold text-secondary-900 mb-2">Doctor Dashboard</h1>
+        <p className="text-secondary-600">Welcome, Dr. {user?.username}! Here is your overview.</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {[
           { icon: FiUsers, label: 'Total Patients', value: stats.totalPatients, color: 'primary' },
-          { icon: FiBell, label: 'Reminders Today', value: stats.remindersToday, color: 'warning' },
-          { icon: FiCheckCircle, label: 'Attendance Rate', value: `${stats.attendanceRate}%`, color: 'success' },
-          { icon: FiTrendingUp, label: 'Appointments', value: stats.appointments, color: 'info' },
+          { icon: FiCalendar, label: 'Upcoming Appointments', value: stats.upcomingAppointments, color: 'info' },
+          { icon: FiClock, label: 'Active Reminders', value: stats.myReminders, color: 'warning' },
         ].map((stat, idx) => (
           <Card key={idx} className="hover:shadow-lg transition-shadow">
             <div className="flex items-start justify-between">
@@ -133,34 +130,28 @@ export default function AdminDashboard() {
       <Card>
         <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h2 className="text-2xl font-bold text-secondary-900">Recent Reminders</h2>
-            <p className="text-secondary-500 text-sm">Latest SMS reminders sent to patients</p>
+            <h2 className="text-2xl font-bold text-secondary-900">Upcoming Appointments</h2>
+            <p className="text-secondary-500 text-sm">Your scheduled patient visits</p>
           </div>
           <div className="flex gap-2 w-full sm:w-auto [&>div]:w-full sm:[&>div]:w-auto">
             <ExportMenu onExport={handleExport} isExporting={isExporting} />
             <Button variant="outline" onClick={() => navigate('/admin/reminders')} className="flex-1 sm:flex-none">View All</Button>
           </div>
         </div>
-        <Table columns={columns} data={recentReminders} hover striped />
+        <Table columns={columns} data={recentAppointments} hover striped />
       </Card>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="text-center">
-          <h3 className="text-lg font-semibold text-secondary-900 mb-4">Send Reminder</h3>
-          <Button variant="primary" fullWidth onClick={() => navigate('/admin/reminders')}>
-            Create Reminder
-          </Button>
-        </Card>
-        <Card className="text-center">
-          <h3 className="text-lg font-semibold text-secondary-900 mb-4">View Reports</h3>
-          <Button variant="secondary" fullWidth onClick={() => navigate('/admin/reports')}>
-            Generate Report
-          </Button>
-        </Card>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card className="text-center">
           <h3 className="text-lg font-semibold text-secondary-900 mb-4">Patient Management</h3>
-          <Button variant="outline" fullWidth onClick={() => navigate('/admin/patients')}>
-            Manage Patients
+          <Button variant="primary" fullWidth onClick={() => navigate('/admin/patients')}>
+            View Patients
+          </Button>
+        </Card>
+        <Card className="text-center">
+          <h3 className="text-lg font-semibold text-secondary-900 mb-4">Messages</h3>
+          <Button variant="secondary" fullWidth onClick={() => navigate('/admin/chat')}>
+            Open Chat
           </Button>
         </Card>
       </div>

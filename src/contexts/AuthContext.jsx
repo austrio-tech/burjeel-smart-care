@@ -27,7 +27,7 @@ function authReducer(state, action) {
     case 'LOGIN_ERROR':
       return { ...state, loading: false, error: action.payload };
     case 'LOGOUT':
-      return initialState;
+      return { ...initialState, loading: false };
     case 'RESTORE_TOKEN':
       return {
         ...state,

@@ -6,6 +6,7 @@ import Button from '../components/common/Button';
 import Badge from '../components/common/Badge';
 import { AlertContext } from '../contexts/AlertContext';
 import * as chatService from '../services/chatService';
+import * as authService from '../services/authService';
 import { useAuth } from '../hooks/useAuth';
 
 export default function ChatPage() {
@@ -21,24 +22,32 @@ export default function ChatPage() {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const messagesData = await chatService.getMessages();
+        const [messagesData, allUsersData] = await Promise.all([
+          chatService.getMessages(),
+          authService.getUsers()
+        ]);
         setMessages(messagesData);
         
-        const uniqueUserIds = new Set();
-        messagesData.forEach(m => {
-          uniqueUserIds.add(m.sender_id);
-          if (m.receiver_id) uniqueUserIds.add(m.receiver_id);
-        });
+        const chatUsers = allUsersData
+          .filter(u => u.user_id !== user?.user_id)
+          .map(u => {
+            const userMessages = messagesData.filter(m => m.sender_id === u.user_id || m.receiver_id === u.user_id);
+            const latestMessage = userMessages[userMessages.length - 1];
+            const unreadCount = userMessages.filter(m => m.sender_id === u.user_id && m.receiver_id === user?.user_id && !m.is_read).length;
+            
+            return {
+              id: u.user_id,
+              name: u.username,
+              role: u.role.charAt(0).toUpperCase() + u.role.slice(1),
+              status: u.account_status === 'active' ? 'online' : 'offline',
+              avatar: u.username.charAt(0).toUpperCase(),
+              latestTimestamp: latestMessage ? new Date(latestMessage.timestamp).getTime() : 0,
+              unreadCount: unreadCount
+            };
+          })
+          .sort((a, b) => b.latestTimestamp - a.latestTimestamp);
         
-        setUsers(
-          Array.from(uniqueUserIds).map(id => ({
-            id,
-            name: `User ${id}`,
-            role: id === user?.id ? 'Me' : 'Other',
-            status: 'online',
-            avatar: id.toString()[0],
-          }))
-        );
+        setUsers(chatUsers);
       } catch (err) {
         console.error('Error fetching messages:', err);
         showError('Failed to load chat');
@@ -54,21 +63,48 @@ export default function ChatPage() {
     if (!selectedUser && users.length > 0) {
       setSelectedUser(users[0]);
     }
-  }, [users]);
+  }, [users, selectedUser]);
+
+  useEffect(() => {
+    if (selectedUser) {
+      const markRead = async () => {
+        const unreadForSelected = messages.filter(m => m.sender_id === selectedUser.id && m.receiver_id === user?.user_id && !m.is_read);
+        if (unreadForSelected.length > 0) {
+          try {
+            await chatService.markAsRead(selectedUser.id);
+            setMessages(prev => prev.map(m => 
+              (m.sender_id === selectedUser.id && m.receiver_id === user?.user_id) ? { ...m, is_read: true } : m
+            ));
+            setUsers(prev => prev.map(u => 
+              u.id === selectedUser.id ? { ...u, unreadCount: 0 } : u
+            ));
+          } catch (error) {
+            console.error("Failed to mark read:", error);
+          }
+        }
+      };
+      markRead();
+    }
+  }, [selectedUser, messages, user?.user_id]);
 
   const handleSendMessage = async () => {
-    if (message.trim()) {
-      const newMessage = {
-        message_id: Date.now(),
-        sender_id: user?.id,
-        receiver_id: selectedUser?.id,
-        message_text: message,
-        timestamp: new Date().toISOString(),
-        is_read: false,
-      };
-      
-      setMessages([...messages, newMessage]);
-      setMessage('');
+    if (message.trim() && selectedUser) {
+      try {
+        const response = await chatService.sendMessage(selectedUser.id, message.trim());
+        const newMessage = response.data || response;
+        
+        setMessages(prev => [...prev, newMessage]);
+        setMessage('');
+        
+        setUsers(prev => {
+          const updatedUsers = prev.map(u => 
+            u.id === selectedUser.id ? { ...u, latestTimestamp: Date.now() } : u
+          );
+          return updatedUsers.sort((a, b) => b.latestTimestamp - a.latestTimestamp);
+        });
+      } catch (err) {
+        showError('Failed to send message');
+      }
     }
   };
 
@@ -81,8 +117,8 @@ export default function ChatPage() {
         <p className="text-secondary-600">Connect with healthcare professionals</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 h-[600px]">
-        <Card className="md:col-span-1 overflow-y-auto">
+      <div className="flex flex-col md:grid md:grid-cols-4 gap-6 h-[calc(100vh-12rem)] min-h-[600px]">
+        <Card className="md:col-span-1 overflow-y-auto flex-shrink-0 h-64 md:h-auto">
           <h2 className="text-lg font-bold text-secondary-900 mb-4">Conversations</h2>
           <div className="space-y-3">
             {users.map((usr) => (
@@ -105,7 +141,14 @@ export default function ChatPage() {
                   ></div>
                 </div>
                 <div className="flex-1 text-left">
-                  <p className="font-semibold text-secondary-900">{usr.name}</p>
+                  <div className="flex justify-between items-center">
+                    <p className="font-semibold text-secondary-900">{usr.name}</p>
+                    {usr.unreadCount > 0 && (
+                      <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                        {usr.unreadCount}
+                      </span>
+                    )}
+                  </div>
                   <p className="text-xs text-secondary-500">{usr.role}</p>
                 </div>
               </button>
@@ -113,7 +156,7 @@ export default function ChatPage() {
           </div>
         </Card>
 
-        <Card className="md:col-span-3 flex flex-col">
+        <Card className="md:col-span-3 flex flex-col flex-1 min-h-0">
           {selectedUser ? (
             <>
               <div className="pb-4 border-b border-secondary-200 mb-4">
@@ -132,19 +175,19 @@ export default function ChatPage() {
                 {messages.map((msg) => (
                   <div
                     key={msg.message_id}
-                    className={`flex ${msg.sender_id === user?.id ? 'justify-end' : 'justify-start'}`}
+                    className={`flex ${msg.sender_id === user?.user_id ? 'justify-end' : 'justify-start'}`}
                   >
                     <div
                       className={`
                         max-w-xs px-4 py-2 rounded-lg
-                        ${msg.sender_id === user?.id
+                        ${msg.sender_id === user?.user_id
                           ? 'bg-primary-600 text-white rounded-br-none'
                           : 'bg-secondary-100 text-secondary-900 rounded-bl-none'
                         }
                       `}
                     >
-                      <p className="text-sm">{msg.message_text}</p>
-                      <p className={`text-xs mt-1 ${msg.sender_id === user?.id ? 'text-primary-100' : 'text-secondary-500'}`}>
+                      <p className={`text-sm ${msg.sender_id === user?.user_id ? 'text-white' : 'text-secondary-900'}`}>{msg.message_text}</p>
+                      <p className={`text-xs mt-1 ${msg.sender_id === user?.user_id ? 'text-primary-100' : 'text-secondary-500'}`}>
                         {new Date(msg.timestamp).toLocaleTimeString()}
                       </p>
                     </div>

@@ -4,7 +4,9 @@ import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import Input from '../components/common/Input';
 import Select from '../components/common/Select';
-import { FiDownload, FiFilter } from 'react-icons/fi';
+import { FiFilter } from 'react-icons/fi';
+import ExportMenu from '../components/common/ExportMenu';
+import { useReportExport } from '../hooks/useReportExport';
 import { AlertContext } from '../contexts/AlertContext';
 import * as reportsService from '../services/reportsService';
 import * as patientService from '../services/patientService';
@@ -25,7 +27,9 @@ export default function ReportsPage() {
   });
   const [attendanceData, setAttendanceData] = useState([]);
   const [reminderData, setReminderData] = useState([]);
+  const [rawData, setRawData] = useState({ patients: [], reminders: [], attendances: [] });
   const { error: showError } = useContext(AlertContext);
+  const { exportData, isExporting } = useReportExport();
 
   const COLORS = ['#10b981', '#3b82f6', '#ef4444'];
 
@@ -39,11 +43,13 @@ export default function ReportsPage() {
           attendanceService.getAttendances(),
           reportsService.getAttendanceReport(),
         ]);
+        
+        setRawData({ patients, reminders, attendances });
 
         setStats({
           totalPatients: patients.length,
           avgAttendance: attendanceReport?.attendance_rate || 0,
-          remindersSent: reminders.filter(r => r.sent_status === 'sent').length,
+          remindersSent: reminders.reduce((acc, r) => acc + (r.success_sent || 0), 0),
           appointments: attendances.length,
         });
 
@@ -68,9 +74,8 @@ export default function ReportsPage() {
         setAttendanceData(weeklyData);
 
         setReminderData([
-          { name: 'Sent', value: reminders.filter(r => r.sent_status === 'sent').length },
-          { name: 'Delivered', value: reminders.filter(r => r.delivery_confirmation === 'delivered').length },
-          { name: 'Failed', value: reminders.filter(r => r.sent_status === 'failed').length },
+          { name: 'Sent', value: reminders.reduce((acc, r) => acc + (r.success_sent || 0), 0) },
+          { name: 'Failed', value: reminders.reduce((acc, r) => acc + (r.failed_sent || 0), 0) },
         ]);
       } catch (err) {
         console.error('Error fetching data:', err);
@@ -82,6 +87,51 @@ export default function ReportsPage() {
 
     fetchData();
   }, [showError]);
+
+  const handleExport = (format) => {
+    let dataToExport = [];
+    let columns = [];
+
+    if (reportType === 'attendance' || reportType === 'appointments') {
+      dataToExport = rawData.attendances;
+      columns = [
+        { key: 'appointment_date', label: 'Date', render: (val) => new Date(val).toLocaleDateString() },
+        { key: 'status', label: 'Status' },
+        { key: 'notes', label: 'Notes' },
+      ];
+    } else if (reportType === 'reminders') {
+      dataToExport = rawData.reminders;
+      columns = [
+        { key: 'scheduled_date', label: 'Scheduled Date', render: (val) => new Date(val).toLocaleString() },
+        { key: 'reminder_type', label: 'Type' },
+        { key: 'display_name', label: 'Detail' },
+        { key: 'success_sent', label: 'Success Sent' },
+        { key: 'failed_sent', label: 'Failed Sent' },
+      ];
+    }
+
+    if (startDate) {
+      dataToExport = dataToExport.filter(item => {
+        const d = new Date(item.appointment_date || item.scheduled_date);
+        return d >= new Date(startDate);
+      });
+    }
+    if (endDate) {
+      dataToExport = dataToExport.filter(item => {
+        const d = new Date(item.appointment_date || item.scheduled_date);
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        return d <= end;
+      });
+    }
+
+    exportData({
+      data: dataToExport,
+      columns,
+      filename: `${reportType}_report_${new Date().toISOString().split('T')[0]}`,
+      format
+    });
+  };
 
   if (loading) return <div className="flex items-center justify-center h-full">Loading...</div>;
 
@@ -120,13 +170,13 @@ export default function ReportsPage() {
           <Input label="End Date" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
         </div>
 
-        <div className="mt-6 flex gap-3">
-          <Button variant="primary" icon={FiFilter}>
+        <div className="mt-6 flex flex-col sm:flex-row gap-3">
+          <Button variant="primary" icon={FiFilter} className="w-full sm:w-auto">
             Apply Filters
           </Button>
-          <Button variant="outline" icon={FiDownload}>
-            Export Report
-          </Button>
+          <div className="w-full sm:w-auto [&>div]:w-full sm:[&>div]:w-auto [&_button]:w-full sm:[&_button]:w-auto">
+            <ExportMenu onExport={handleExport} isExporting={isExporting} />
+          </div>
         </div>
       </Card>
 

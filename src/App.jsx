@@ -6,11 +6,17 @@ import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
 import AdminDashboard from './pages/AdminDashboard';
 import PatientDashboard from './pages/PatientDashboard';
+import PatientAppointments from './pages/PatientAppointments';
+import PatientDoctorsPage from './pages/PatientDoctorsPage';
 import AttendancePage from './pages/AttendancePage';
 import ReminderPage from './pages/ReminderPage';
 import ChatPage from './pages/ChatPage';
 import ReportsPage from './pages/ReportsPage';
 import PatientsPage from './pages/PatientsPage';
+import DoctorManagementPage from './pages/DoctorManagementPage';
+import DoctorDashboard from './pages/DoctorDashboard';
+import SettingsPage from './pages/SettingsPage';
+import AuditLogsPage from './pages/AuditLogsPage';
 import AlertContainer from './components/common/AlertContainer';
 import './App.css';
 
@@ -55,9 +61,11 @@ export default function App() {
               <>
                 <Route path="/admin/dashboard" element={<AdminDashboard />} />
                 <Route path="/admin/patients" element={<PatientsPage />} />
+                <Route path="/admin/doctors" element={<DoctorManagementPage />} />
                 <Route path="/admin/attendance" element={<AttendancePage />} />
                 <Route path="/admin/reminders" element={<ReminderPage />} />
                 <Route path="/admin/reports" element={<ReportsPage />} />
+                <Route path="/admin/audit-logs" element={<AuditLogsPage />} />
                 <Route path="/admin/chat" element={<ChatPage />} />
               </>
             )}
@@ -66,15 +74,21 @@ export default function App() {
             {user?.role === 'patient' && (
               <>
                 <Route path="/patient/dashboard" element={<PatientDashboard />} />
+                <Route path="/patient/doctors" element={<PatientDoctorsPage />} />
+                <Route path="/patient/appointments" element={<PatientAppointments />} />
                 <Route path="/patient/chat" element={<ChatPage />} />
               </>
             )}
 
-            {/* Pharmacist Routes */}
-            {user?.role === 'pharmacist' && (
+            {/* Doctor Routes */}
+            {user?.role === 'doctor' && (
               <>
-                <Route path="/pharmacist/dashboard" element={<PatientDashboard />} />
-                <Route path="/pharmacist/chat" element={<ChatPage />} />
+                <Route path="/doctor/dashboard" element={<DoctorDashboard />} />
+                <Route path="/admin/patients" element={<PatientsPage />} />
+                <Route path="/admin/reminders" element={<ReminderPage />} />
+                <Route path="/admin/attendance" element={<AttendancePage />} />
+                <Route path="/admin/reports" element={<ReportsPage />} />
+                <Route path="/admin/chat" element={<ChatPage />} />
               </>
             )}
 
@@ -92,12 +106,15 @@ export default function App() {
               element={
                 user?.role === 'admin' ? (
                   <Navigate to="/admin/dashboard" replace />
+                ) : user?.role === 'doctor' ? (
+                  <Navigate to="/doctor/dashboard" replace />
                 ) : (
                   <Navigate to={`/${user?.role}/dashboard`} replace />
                 )
               } 
             />
             
+            <Route path="/settings" element={<SettingsPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Layout>

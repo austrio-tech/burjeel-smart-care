@@ -164,7 +164,7 @@ export default function SignupPage() {
 
             <div className="space-y-2">
               <label className="block text-sm font-medium text-secondary-700">Account Type</label>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3">
                 <label className="flex items-center p-3 border border-secondary-200 rounded-lg cursor-pointer hover:border-primary-400 transition-colors">
                   <input
                     type="radio"
@@ -175,17 +175,6 @@ export default function SignupPage() {
                     className="mr-3 text-primary-600 focus:ring-primary-500"
                   />
                   <span className="text-sm text-secondary-700">Patient</span>
-                </label>
-                <label className="flex items-center p-3 border border-secondary-200 rounded-lg cursor-pointer hover:border-primary-400 transition-colors">
-                  <input
-                    type="radio"
-                    name="role"
-                    value="admin"
-                    checked={formData.role === 'admin'}
-                    onChange={handleInputChange}
-                    className="mr-3 text-primary-600 focus:ring-primary-500"
-                  />
-                  <span className="text-sm text-secondary-700">Admin</span>
                 </label>
               </div>
             </div>

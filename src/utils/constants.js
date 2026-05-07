@@ -2,8 +2,7 @@
 export const USER_ROLES = {
   ADMIN: 'admin',
   PATIENT: 'patient',
-  PHARMACIST: 'pharmacist',
-  IT_STAFF: 'it_staff',
+  DOCTOR: 'doctor',
 };
 
 // Attendance Status

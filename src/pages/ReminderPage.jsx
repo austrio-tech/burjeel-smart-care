@@ -9,27 +9,46 @@ import Select from '../components/common/Select';
 import { FiBell, FiPlus } from 'react-icons/fi';
 import Badge from '../components/common/Badge';
 import { AlertContext } from '../contexts/AlertContext';
+import ExportMenu from '../components/common/ExportMenu';
+import { useReportExport } from '../hooks/useReportExport';
 import * as reminderService from '../services/reminderService';
 import * as patientService from '../services/patientService';
+import * as authService from '../services/authService';
 
 export default function ReminderPage() {
   const { user } = useAuth();
   const [showModal, setShowModal] = useState(false);
   const [reminders, setReminders] = useState([]);
   const [patients, setPatients] = useState([]);
+  const [doctors, setDoctors] = useState([]);
   const [loading, setLoading] = useState(true);
   const { error: showError, success } = useContext(AlertContext);
+  const { exportData, isExporting } = useReportExport();
 
   const [formData, setFormData] = useState({
     patient_id: '',
-    medication_name: '',
+    display_name: '',
     scheduled_date: '',
     reminder_type: 'medication',
-    doctor_name: '',
   });
 
   const columns = [
-    { key: 'patient_id', label: 'Patient ID' },
+    { 
+      key: 'patient_id', 
+      label: 'Patient',
+      render: (val, row) => {
+        const patient = patients.find(p => p.patient_id === val);
+        return patient?.full_name || `Patient ${val}`;
+      }
+    },
+    { 
+      key: 'patient_id', 
+      label: 'Phone',
+      render: (val) => {
+        const patient = patients.find(p => p.patient_id === val);
+        return patient?.phone_number || 'N/A';
+      }
+    },
     { 
       key: 'reminder_type', 
       label: 'Type',
@@ -40,32 +59,83 @@ export default function ReminderPage() {
       )
     },
     { 
-      key: 'medication_name', 
+      key: 'display_name', 
       label: 'Details',
-      render: (val, row) => row.reminder_type === 'doctor_visit' ? `Dr. ${row.doctor_name}` : val
+      render: (val, row) => {
+        const suff = row.reminder_type === 'doctor_visit' ? 'Dr. ' : '';
+        return suff+val;
+      }
     },
     {
-      key: 'sent_status',
-      label: 'Status',
-      render: (status) => (
-        <Badge variant={status === 'sent' ? 'success' : 'warning'}>
-          {status.charAt(0).toUpperCase() + status.slice(1)}
-        </Badge>
+      key: 'success_sent',
+      label: 'Success Sent',
+      render: (val) => (
+        <Badge variant="success">{val || 0}</Badge>
       ),
     },
-    { key: 'scheduled_date', label: 'Scheduled Date' },
+    {
+      key: 'failed_sent',
+      label: 'Failed Sent',
+      render: (val) => (
+        <Badge variant="danger">{val || 0}</Badge>
+      ),
+    },
+    { 
+      key: 'scheduled_date', 
+      label: 'Scheduled Date (Muscat)',
+      render: (date) => new Date(date).toLocaleString('en-US', { timeZone: 'Asia/Muscat', hour12: true })
+    },
   ];
+
+  const handleExport = (format) => {
+    exportData({
+      data: reminders,
+      columns: [
+        { 
+          key: 'patient_id', 
+          label: 'Patient',
+          exportRender: (val) => patients.find(p => p.patient_id === val)?.full_name || `Patient ${val}`
+        },
+        { 
+          key: 'patient_id', 
+          label: 'Phone',
+          exportRender: (val) => patients.find(p => p.patient_id === val)?.phone_number || 'N/A'
+        },
+        { 
+          key: 'reminder_type', 
+          label: 'Type',
+          exportRender: (val) => val === 'doctor_visit' ? 'Doctor Visit' : 'Medication'
+        },
+        { 
+          key: 'display_name', 
+          label: 'Details',
+          exportRender: (val, row) => row.reminder_type === 'doctor_visit' ? `Dr. ${val}` : val
+        },
+        { key: 'success_sent', label: 'Success Sent' },
+        { key: 'failed_sent', label: 'Failed Sent' },
+        { 
+          key: 'scheduled_date', 
+          label: 'Scheduled Date',
+          exportRender: (val) => new Date(val).toLocaleString('en-US', { timeZone: 'Asia/Muscat', hour12: true })
+        },
+      ],
+      filename: `Reminders_${new Date().toISOString().split('T')[0]}`,
+      format
+    });
+  };
 
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const [remindersData, patientsData] = await Promise.all([
+        const [remindersData, patientsData, doctorsData] = await Promise.all([
           reminderService.getReminders(),
           patientService.getPatients(),
+          user?.role === 'admin' ? authService.getUsers('doctor') : Promise.resolve([]),
         ]);
         setReminders(remindersData);
         setPatients(patientsData);
+        setDoctors(doctorsData);
       } catch (err) {
         console.error('Error fetching data:', err);
         showError('Failed to load data');
@@ -79,19 +149,27 @@ export default function ReminderPage() {
 
   const handleCreateReminder = async () => {
     try {
+      // Ensure scheduled_date is in ISO format (which is UTC by default in JS if not local)
+      // Since datetime-local inputs work in the browser's local timezone, 
+      // we might need to convert it to a specific format.
+      // For Asia/Muscat, if the user is not in Muscat, we need to handle that.
+      // A robust way is to append the timezone offset if needed or send as UTC.
+      
       const dataToSubmit = {
         ...formData,
-        doctor_name: formData.reminder_type === 'doctor_visit' ? (user?.username || 'Admin') : null
+        scheduled_date: new Date(formData.scheduled_date).toISOString(),
+        display_name: formData.reminder_type === 'doctor_visit' 
+          ? (user?.role === 'admin' ? formData.display_name : (user?.username || 'Admin')) 
+          : formData.display_name
       };
       await reminderService.createReminder(dataToSubmit);
       success('Reminder created successfully!');
       setShowModal(false);
       setFormData({ 
         patient_id: '', 
-        medication_name: '', 
+        display_name: '', 
         scheduled_date: '',
         reminder_type: 'medication',
-        doctor_name: '',
       });
       const remindersData = await reminderService.getReminders();
       setReminders(remindersData);
@@ -105,9 +183,9 @@ export default function ReminderPage() {
 
   return (
     <div className="space-y-8">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-4xl font-bold text-secondary-900 mb-2">Reminder Management</h1>
+          <h1 className="text-3xl sm:text-4xl font-bold text-secondary-900 mb-2">Reminder Management</h1>
           <p className="text-secondary-600">Schedule and send SMS/Email reminders to patients</p>
         </div>
         <Button
@@ -115,6 +193,7 @@ export default function ReminderPage() {
           size="lg"
           icon={FiPlus}
           onClick={() => setShowModal(true)}
+          className="w-full sm:w-auto"
         >
           Create Reminder
         </Button>
@@ -122,9 +201,8 @@ export default function ReminderPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {[
-          { label: 'Total Sent', value: reminders.filter(r => r.sent_status === 'sent').length, color: 'primary' },
-          { label: 'Pending', value: reminders.filter(r => r.sent_status === 'pending').length, color: 'warning' },
-          { label: 'Failed', value: reminders.filter(r => r.sent_status === 'failed').length, color: 'danger' },
+          { label: 'Total Success', value: reminders.reduce((acc, r) => acc + (r.success_sent || 0), 0), color: 'success' },
+          { label: 'Total Failed', value: reminders.reduce((acc, r) => acc + (r.failed_sent || 0), 0), color: 'danger' },
         ].map((stat, idx) => (
           <Card key={idx}>
             <p className="text-secondary-500 text-sm font-medium mb-1">{stat.label}</p>
@@ -134,7 +212,12 @@ export default function ReminderPage() {
       </div>
 
       <Card>
-        <h2 className="text-xl font-bold text-secondary-900 mb-6">Recent Reminders</h2>
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 gap-4">
+          <h2 className="text-xl font-bold text-secondary-900">Recent Reminders</h2>
+          <div className="w-full sm:w-auto [&>div]:w-full [&_button]:w-full">
+            <ExportMenu onExport={handleExport} isExporting={isExporting} />
+          </div>
+        </div>
         <Table columns={columns} data={reminders} hover striped />
       </Card>
 
@@ -182,8 +265,18 @@ export default function ReminderPage() {
             <Input
               label="Medication Name"
               placeholder="Enter medication name..."
-              value={formData.medication_name}
-              onChange={(e) => setFormData({ ...formData, medication_name: e.target.value })}
+              value={formData.display_name}
+              onChange={(e) => setFormData({ ...formData, display_name: e.target.value })}
+            />
+          ) : user?.role === 'admin' ? (
+            <Select
+              label="Select Doctor"
+              value={formData.display_name}
+              onChange={(e) => setFormData({ ...formData, display_name: e.target.value })}
+              options={[
+                { value: '', label: 'Select a doctor' },
+                ...doctors.map(d => ({ value: d.username, label: `Dr. ${d.username}` }))
+              ]}
             />
           ) : (
             <div className="p-4 bg-secondary-50 rounded-lg border border-secondary-200">
@@ -197,8 +290,8 @@ export default function ReminderPage() {
           )}
 
           <Input
-            label="Scheduled Date"
-            type="date"
+            label="Scheduled Date & Time"
+            type="datetime-local"
             value={formData.scheduled_date}
             onChange={(e) => setFormData({ ...formData, scheduled_date: e.target.value })}
           />

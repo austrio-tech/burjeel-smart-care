@@ -8,31 +8,44 @@ import {
   FiBarChart2,
   FiMessageSquare,
   FiCalendar,
+  FiUserPlus,
+  FiSettings,
+  FiShield,
 } from 'react-icons/fi';
 
 const navItems = {
   admin: [
     { label: 'Dashboard', path: '/admin/dashboard', icon: FiHome },
     { label: 'Patients', path: '/admin/patients', icon: FiUsers },
+    { label: 'Doctors', path: '/admin/doctors', icon: FiUserPlus },
+    { label: 'Reminders', path: '/admin/reminders', icon: FiBell },
+    { label: 'Attendance', path: '/admin/attendance', icon: FiCheck },
+    { label: 'Reports', path: '/admin/reports', icon: FiBarChart2 },
+    { label: 'Audit Logs', path: '/admin/audit-logs', icon: FiShield },
+    { label: 'Chat', path: '/admin/chat', icon: FiMessageSquare },
+    { label: 'Settings', path: '/settings', icon: FiSettings },
+  ],
+  patient: [
+    { label: 'Dashboard', path: '/patient/dashboard', icon: FiHome },
+    { label: 'Doctors', path: '/patient/doctors', icon: FiUserPlus },
+    { label: 'Appointments', path: '/patient/appointments', icon: FiCalendar },
+    { label: 'Messages', path: '/patient/chat', icon: FiMessageSquare },
+    { label: 'Settings', path: '/settings', icon: FiSettings },
+  ],
+  doctor: [
+    { label: 'Dashboard', path: '/admin/dashboard', icon: FiHome },
+    { label: 'Patients', path: '/admin/patients', icon: FiUsers },
     { label: 'Reminders', path: '/admin/reminders', icon: FiBell },
     { label: 'Attendance', path: '/admin/attendance', icon: FiCheck },
     { label: 'Reports', path: '/admin/reports', icon: FiBarChart2 },
     { label: 'Chat', path: '/admin/chat', icon: FiMessageSquare },
-  ],
-  patient: [
-    { label: 'Dashboard', path: '/patient/dashboard', icon: FiHome },
-    { label: 'Appointments', path: '/patient/appointments', icon: FiCalendar },
-    { label: 'Messages', path: '/patient/chat', icon: FiMessageSquare },
-  ],
-  pharmacist: [
-    { label: 'Dashboard', path: '/pharmacist/dashboard', icon: FiHome },
-    { label: 'Medications', path: '/pharmacist/medications', icon: FiBell },
-    { label: 'Messages', path: '/pharmacist/chat', icon: FiMessageSquare },
+    { label: 'Settings', path: '/settings', icon: FiSettings },
   ],
   it_staff: [
     { label: 'Dashboard', path: '/it/dashboard', icon: FiHome },
     { label: 'System', path: '/it/system', icon: FiBarChart2 },
     { label: 'Messages', path: '/it/chat', icon: FiMessageSquare },
+    { label: 'Settings', path: '/settings', icon: FiSettings },
   ],
 };
 

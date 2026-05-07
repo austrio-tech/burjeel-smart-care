@@ -20,8 +20,19 @@ export const getConversations = async () => {
   return [];
 };
 
-export const sendMessage = async (conversationId, content) => {
-  return { message_text: content, timestamp: new Date().toISOString() };
+export const sendMessage = async (receiverId, content) => {
+  const response = await api.post('/chat/messages/', {
+    receiver_id: receiverId,
+    message_text: content
+  });
+  return response;
+};
+
+export const markAsRead = async (senderId) => {
+  const response = await api.put('/chat/messages/read', {
+    sender_id: senderId
+  });
+  return response;
 };
 
 export const createConversation = async (userId) => {

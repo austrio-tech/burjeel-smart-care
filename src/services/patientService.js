@@ -18,6 +18,11 @@ export const createPatient = async (patientData) => {
 };
 
 export const updatePatient = async (patientId, patientData) => {
-  const response = await api.put(`/patients/${patientId}/`, patientData);
+  const response = await api.put(`/patients/${patientId}`, patientData);
+  return response;
+};
+
+export const deletePatient = async (patientId) => {
+  const response = await api.delete(`/patients/${patientId}`);
   return response;
 };

@@ -115,12 +115,12 @@ export default function AttendancePage() {
 
   return (
     <div className="space-y-8">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row sm:justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-4xl font-bold text-secondary-900 mb-2">Attendance Tracking</h1>
+          <h1 className="text-3xl sm:text-4xl font-bold text-secondary-900 mb-2">Attendance Tracking</h1>
           <p className="text-secondary-600">Monitor patient attendance and check-in times</p>
         </div>
-        <Button variant="primary" icon={FiPlus} onClick={() => setIsModalOpen(true)}>
+        <Button variant="primary" icon={FiPlus} onClick={() => setIsModalOpen(true)} className="w-full sm:w-auto">
           Mark Attendance
         </Button>
       </div>
@@ -142,18 +142,20 @@ export default function AttendancePage() {
       </div>
 
       <Card>
-        <div className="flex gap-4 flex-wrap items-end">
+        <div className="flex flex-col sm:flex-row gap-4 flex-wrap items-stretch sm:items-end">
           <Input
             placeholder="Search patient ID..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             icon={FiSearch}
-            className="flex-1 min-w-64"
+            className="flex-1 w-full sm:min-w-64"
           />
-          <Button variant="outline">Filter</Button>
-          <Button variant="secondary" icon={FiDownload}>
-            Export
-          </Button>
+          <div className="flex gap-4 w-full sm:w-auto">
+            <Button variant="outline" className="flex-1 sm:flex-none">Filter</Button>
+            <Button variant="secondary" icon={FiDownload} className="flex-1 sm:flex-none">
+              Export
+            </Button>
+          </div>
         </div>
       </Card>
 
