@@ -44,7 +44,11 @@ export default function DoctorDashboard() {
         });
 
         setRecentAppointments(
-          upcoming.slice(0, 10).map(r => {
+          upcoming
+            .slice()
+            .sort((a, b) => new Date(b.scheduled_date) - new Date(a.scheduled_date))
+            .slice(0, 10)
+            .map(r => {
             const patient = patients.find(p => p.patient_id === r.patient_id);
             return {
               id: r.reminder_id,

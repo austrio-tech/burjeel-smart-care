@@ -46,7 +46,11 @@ export default function AdminDashboard() {
         });
 
         setRecentReminders(
-          reminders.slice(0, 10).map(r => {
+          reminders
+            .slice()
+            .sort((a, b) => new Date(b.scheduled_date) - new Date(a.scheduled_date))
+            .slice(0, 10)
+            .map(r => {
             const patient = patients.find(p => p.patient_id === r.patient_id);
             return {
               id: r.reminder_id,
