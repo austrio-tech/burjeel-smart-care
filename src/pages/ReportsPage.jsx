@@ -88,11 +88,18 @@ function filterByDateRange(data, dateKey, start, end) {
 /*
  * formatChange — Computes the % change from `previous` to `current` and returns
  * a display string like '+25.0%' or '-10.0%'.
- * Returns '—' when there is no previous data to compare against (avoids ÷ 0).
+ *
+ * Returns '—' whenever `previous` is 0, because you cannot calculate a meaningful
+ * percentage without a baseline. Going from 0 → n is infinite growth, not +100%.
+ *   previous=0, current=0  → '—'   (no data in either period)
+ *   previous=0, current>0  → '—'   (first period ever; no baseline to compare)
+ *   previous=1, current=2  → '+100.0%'  ✓
+ *   previous=2, current=3  → '+50.0%'   ✓
+ *   previous=5, current=0  → '-100.0%'  ✓
  */
 function formatChange(current, previous) {
-  if (previous === 0 && current === 0) return '—';
-  if (previous === 0) return '+100%';
+  // No baseline → percentage is undefined, not +100%.
+  if (previous === 0) return '—';
   const pct = ((current - previous) / previous) * 100;
   return `${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%`;
 }
@@ -194,9 +201,14 @@ export default function ReportsPage() {
     const prevAtt = filterByDateRange(attendances, 'appointment_date', prevStart,    prevEnd);
     const currRem = filterByDateRange(reminders,   'scheduled_date',   currentStart, currentEnd);
     const prevRem = filterByDateRange(reminders,   'scheduled_date',   prevStart,    prevEnd);
-    // Filter patients by registration date to measure new-patient growth per period.
-    const currPat = filterByDateRange(patients, 'registered_date', currentStart, currentEnd);
-    const prevPat = filterByDateRange(patients, 'registered_date', prevStart,    prevEnd);
+
+    // For Total Patients we compare the patient count that existed BEFORE the current period
+    // started against the current total. This correctly shows e.g. "+50%" when there were
+    // 2 patients at the start of the month and 3 now (1 new). Adding 'T00:00:00' forces the
+    // date string to be parsed in local time so it aligns with currentStart (also local time).
+    const patientsAtPeriodStart = patients.filter(p =>
+      p.registered_date && new Date(p.registered_date + 'T00:00:00') < currentStart
+    ).length;
 
     // Attendance rate = (present records / total records) × 100 for each period.
     const currPresent = currAtt.filter(a => a.status === 'present' || a.status === 'came').length;
@@ -217,9 +229,12 @@ export default function ReportsPage() {
       appointments:  currAtt.length,
     });
 
-    // Update % changes — each is calculated from real current vs real previous period data.
+    // Update % changes — each compared against the appropriate baseline.
     setChanges({
-      totalPatients: formatChange(currPat.length, prevPat.length),
+      // Total patients: current total vs how many existed before this period started.
+      // e.g. 2 patients before → 3 now = +50%. If patientsAtPeriodStart=0 (new system) → '—'.
+      totalPatients: formatChange(patients.length, patientsAtPeriodStart),
+      // Attendance rate, reminders, appointments: current period vs the preceding equal period.
       avgAttendance: formatChange(currAttRate,    prevAttRate),
       remindersSent: formatChange(currSent,       prevSent),
       appointments:  formatChange(currAtt.length, prevAtt.length),
@@ -380,7 +395,7 @@ export default function ReportsPage() {
       {/* Stat cards — each shows the current-period value and a real % change vs the prior period. */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         {[
-          { label: 'Total Patients', value: stats.totalPatients,       change: changes.totalPatients, sub: 'new registrations this period' },
+          { label: 'Total Patients', value: stats.totalPatients,       change: changes.totalPatients, sub: 'since start of period' },
           { label: 'Avg Attendance', value: `${stats.avgAttendance}%`, change: changes.avgAttendance, sub: 'attendance rate'               },
           { label: 'Reminders Sent', value: stats.remindersSent,       change: changes.remindersSent, sub: 'successfully delivered'        },
           { label: 'Appointments',   value: stats.appointments,        change: changes.appointments,  sub: 'this period'                   },
