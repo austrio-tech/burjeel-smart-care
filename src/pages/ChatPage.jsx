@@ -214,7 +214,7 @@ export default function ChatPage() {
               <div className="flex-1 overflow-y-auto mb-4 space-y-4 px-2">
                 {selectedConversation.messages && selectedConversation.messages.length > 0 ? (
                   selectedConversation.messages.map((msg, idx) => (
-                    {/* Align sent messages to the right, received messages to the left. */}
+                    // Align sent messages to the right, received messages to the left.
                     <div
                       key={msg.message_id || idx}
                       className={`flex ${msg.sender_id === user?.user_id ? 'justify-end' : 'justify-start'}`}
