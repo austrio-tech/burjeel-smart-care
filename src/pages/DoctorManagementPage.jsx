@@ -1,3 +1,10 @@
+/*
+ * DoctorManagementPage.jsx
+ * This page is accessible only to admins. It displays all registered doctors as cards
+ * and lets the admin add new doctors, edit their profile details, reset their password,
+ * or remove them from the system entirely.
+ */
+
 import { useState, useEffect, useContext } from 'react';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
@@ -8,26 +15,34 @@ import { FiPlus, FiTrash2, FiEdit2 } from 'react-icons/fi';
 import * as userService from '../services/userService';
 
 export default function DoctorManagementPage() {
+  // doctors holds the list of all users whose role is "doctor".
   const [doctors, setDoctors] = useState([]);
+  // showModal controls whether the Add/Edit doctor form is visible.
   const [showModal, setShowModal] = useState(false);
+  // isEditMode is true when the modal is being used to edit an existing doctor.
   const [isEditMode, setIsEditMode] = useState(false);
+  // editingId stores the user_id of the doctor currently being edited.
   const [editingId, setEditingId] = useState(null);
-  
-  const [formData, setFormData] = useState({ 
-    username: '', email: '', password: '', 
-    gender: '', specialty: '', license_number: '', department: '' 
+
+  // formData holds all the values for the Add/Edit doctor form fields.
+  const [formData, setFormData] = useState({
+    username: '', email: '', password: '',
+    gender: '', specialty: '', license_number: '', department: ''
   });
-  
+
+  // showPasswordModal and related state control the separate password-reset modal.
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [passwordResetId, setPasswordResetId] = useState(null);
   const [resetPasswordValue, setResetPasswordValue] = useState('');
-  
+
   const { error: showError, success } = useContext(AlertContext);
 
+  // Load the doctor list as soon as the page appears on screen.
   useEffect(() => {
     fetchDoctors();
   }, []);
 
+  // Submits a new password for the selected doctor's account.
   const handlePasswordResetSubmit = async (e) => {
     e.preventDefault();
     try {
@@ -40,6 +55,7 @@ export default function DoctorManagementPage() {
     }
   };
 
+  // Fetches all users with the role of "doctor" from the backend.
   const fetchDoctors = async () => {
     try {
       const data = await userService.getUsersByRole('doctor');
@@ -49,10 +65,13 @@ export default function DoctorManagementPage() {
     }
   };
 
+  // Handles the Add/Edit form submission. Creates a new doctor or updates an existing one
+  // based on the isEditMode flag, then refreshes the doctor list.
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
       if (isEditMode) {
+        // When editing, the password field is intentionally excluded — use the reset modal instead.
         await userService.updateUser(editingId, {
           username: formData.username,
           email: formData.email,
@@ -63,6 +82,7 @@ export default function DoctorManagementPage() {
         });
         success('Doctor updated successfully!');
       } else {
+        // Spread operator merges formData with { role: 'doctor' } to create a complete user object.
         await userService.createUser({ ...formData, role: 'doctor' });
         success('Doctor added successfully!');
       }
@@ -75,11 +95,12 @@ export default function DoctorManagementPage() {
     }
   };
 
+  // Pre-fills the modal form with the selected doctor's data and switches it to edit mode.
   const handleEdit = (doctor) => {
     setFormData({
       username: doctor.username || '',
       email: doctor.email || '',
-      password: '', // Password shouldn't be populated
+      password: '', // Password is never pre-filled — admins must use the reset modal to change it.
       gender: doctor.gender || '',
       specialty: doctor.specialty || '',
       license_number: doctor.license_number || '',
@@ -90,6 +111,7 @@ export default function DoctorManagementPage() {
     setShowModal(true);
   };
 
+  // Asks for confirmation, then permanently deletes the doctor's account.
   const handleDelete = async (id) => {
     if (window.confirm("Are you sure you want to delete this doctor?")) {
       try {
@@ -116,6 +138,7 @@ export default function DoctorManagementPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {doctors.map((doctor) => {
+          // Use a gender-coloured generated avatar if the doctor has no profile photo uploaded.
           let avatarUrl = doctor.profile_picture_url;
           if (!avatarUrl) {
             if (doctor.gender === 'female') {
@@ -168,6 +191,7 @@ export default function DoctorManagementPage() {
             <Input label="Username" value={formData.username} onChange={(e) => setFormData({...formData, username: e.target.value})} required />
             <Input label="Email" type="email" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} required />
             
+            {/* Password input is only shown when creating a new doctor, not while editing. */}
             {!isEditMode && (
               <Input label="Password" type="password" value={formData.password} onChange={(e) => setFormData({...formData, password: e.target.value})} required />
             )}

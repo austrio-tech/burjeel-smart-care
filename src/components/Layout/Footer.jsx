@@ -1,6 +1,19 @@
+/*
+ * Footer.jsx — The site footer rendered at the bottom of every page.
+ *
+ * It shows the app name and description, a small set of quick links, a
+ * support email address, and the current copyright year. It is rendered
+ * by Layout.jsx and requires no props.
+ */
+
 import { APP_CONFIG } from '../../utils/constants';
 
+/*
+ * Footer reads the current year at render time so the copyright notice
+ * never needs to be manually updated.
+ */
 export default function Footer() {
+  // `new Date().getFullYear()` returns the four-digit current year (e.g. 2025).
   const currentYear = new Date().getFullYear();
 
   return (

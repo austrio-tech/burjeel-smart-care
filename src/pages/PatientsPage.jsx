@@ -1,3 +1,10 @@
+/*
+ * PatientsPage.jsx
+ * This page is visible to admins and doctors. It shows the full patient directory
+ * as a grid of cards. Staff can add new patients, edit existing ones, delete them,
+ * and reset their login passwords. A search box filters the list in real time.
+ */
+
 import { useState, useEffect, useContext } from 'react';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
@@ -13,22 +20,30 @@ import * as patientService from '../services/patientService';
 import * as userService from '../services/userService';
 
 export default function PatientsPage() {
+  // searchTerm is what the user has typed in the search box.
   const [searchTerm, setSearchTerm] = useState('');
+  // patients is the full unfiltered list fetched from the API.
   const [patients, setPatients] = useState([]);
   const [loading, setLoading] = useState(true);
+  // isModalOpen controls whether the Add/Edit patient form modal is visible.
   const [isModalOpen, setIsModalOpen] = useState(false);
+  // isEditModalOpen tells us whether the open modal is in edit mode (vs. create mode).
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  // editingId / editingUserId remember which record is being edited.
   const [editingId, setEditingId] = useState(null);
   const [editingUserId, setEditingUserId] = useState(null);
+  // submitting is true while the save request is in progress, preventing double-clicks.
   const [submitting, setSubmitting] = useState(false);
-  
+
+  // showPasswordModal and related state control the separate password-reset modal.
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [passwordResetId, setPasswordResetId] = useState(null);
   const [resetPasswordValue, setResetPasswordValue] = useState('');
-  
+
   const { error: showError, success: showSuccess } = useContext(AlertContext);
   const { exportData, isExporting } = useReportExport();
 
+  // formData holds all field values for the Add/Edit patient form.
   const [formData, setFormData] = useState({
     username: '',
     email: '',
@@ -40,6 +55,7 @@ export default function PatientsPage() {
     gender: ''
   });
 
+  // Column definitions used when exporting data to a file.
   const columns = [
     { key: 'patient_id', label: 'ID' },
     { key: 'full_name', label: 'Full Name' },
@@ -48,6 +64,8 @@ export default function PatientsPage() {
     { key: 'registered_date', label: 'Registered' },
   ];
 
+  // Loads the latest patient list from the backend and stores it in state.
+  // Called on mount and after any create/edit/delete operation.
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -61,20 +79,25 @@ export default function PatientsPage() {
     }
   };
 
+  // Fetch patients once when the page first loads.
   useEffect(() => {
     fetchData();
   }, []);
 
+  // Keeps formData in sync as the user types into any field in the modal form.
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
+  // Handles saving the form — either creates a new patient or updates an existing one
+  // depending on whether isEditModalOpen is true.
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
     try {
       if (isEditModalOpen) {
+        // When editing, we update via userService (which targets the auth user record).
         await userService.updateUser(editingUserId, {
           username: formData.username,
           email: formData.email,
@@ -86,11 +109,13 @@ export default function PatientsPage() {
         });
         showSuccess('Patient updated successfully');
       } else {
+        // When creating, patientService handles both the user account and patient profile.
         await patientService.createPatient(formData);
         showSuccess('Patient added successfully');
       }
       setIsModalOpen(false);
       setIsEditModalOpen(false);
+      // Reset the form back to empty defaults after a successful save.
       setFormData({
         username: '',
         email: '',
@@ -109,6 +134,7 @@ export default function PatientsPage() {
     }
   };
 
+  // Submits the new password for the selected patient's login account.
   const handlePasswordResetSubmit = async (e) => {
     e.preventDefault();
     try {
@@ -121,15 +147,17 @@ export default function PatientsPage() {
     }
   };
 
+  // Pre-fills the modal form with the clicked patient's current data and opens the edit modal.
   const handleEditClick = (patient) => {
     setFormData({
       username: patient.username || '',
       email: patient.email || '',
-      password: '',
+      password: '', // Never populate password — the admin must set a new one explicitly.
       gender: patient.gender || '',
       full_name: patient.full_name || '',
       phone_number: patient.phone_number || '',
       medical_record_ref: patient.medical_record_ref || '',
+      // Strip the time portion (T...) from the ISO timestamp to get just the date string.
       registered_date: patient.registered_date ? patient.registered_date.split('T')[0] : new Date().toISOString().split('T')[0],
     });
     setEditingId(patient.patient_id);
@@ -138,7 +166,9 @@ export default function PatientsPage() {
     setIsModalOpen(true);
   };
 
+  // Asks the user to confirm, then deletes the patient record permanently.
   const handleDeleteClick = async (id) => {
+    // window.confirm shows a browser confirmation dialog before proceeding.
     if (window.confirm("Are you sure you want to delete this patient?")) {
       try {
         await patientService.deletePatient(id);
@@ -150,12 +180,15 @@ export default function PatientsPage() {
     }
   };
 
+  // Filters the patient list in real time based on the search box contents.
+  // Matches against patient name, numeric ID, or medical record number (MRN).
   const filteredPatients = patients.filter((p) =>
     p.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     p.patient_id.toString().includes(searchTerm) ||
     p.medical_record_ref?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  // Exports the currently filtered list (not the full list) to a downloadable file.
   const handleExport = (format) => {
     exportData({
       data: filteredPatients,
@@ -204,6 +237,8 @@ export default function PatientsPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredPatients.map((patient) => {
+          // If the patient has no uploaded photo, generate an avatar using the ui-avatars service.
+          // Pink colours are used for female patients and blue for everyone else.
           let avatarUrl = patient.profile_picture_url;
           if (!avatarUrl) {
             if (patient.gender === 'female') {
@@ -216,9 +251,10 @@ export default function PatientsPage() {
           return (
             <Card key={patient.patient_id} className="hover:shadow-lg transition-shadow">
               <div className="flex items-start gap-4">
-                <img 
-                  src={avatarUrl} 
-                  alt={patient.full_name} 
+                {/* Profile picture — generated from the patient's name if no photo is uploaded. */}
+                <img
+                  src={avatarUrl}
+                  alt={patient.full_name}
                   className="w-16 h-16 rounded-full object-cover border-2 border-secondary-200"
                 />
                 <div className="flex-1 min-w-0">
@@ -293,6 +329,7 @@ export default function PatientsPage() {
               onChange={handleInputChange}
               icon={FiMail}
             />
+            {/* Password field is only shown when creating a new patient, not when editing. */}
             {!isEditModalOpen && (
               <Input
                 label="Password"

@@ -1,6 +1,25 @@
+/*
+ * Alert.jsx — A dismissible notification banner used to give feedback to
+ * the user (e.g. "Appointment saved successfully" or "Something went wrong").
+ *
+ * It supports four types — success, error, warning, and info — each with its
+ * own colour scheme and icon. Alerts can close themselves automatically after
+ * a set time, or wait for the user to click the X button. AlertContainer.jsx
+ * renders multiple Alerts stacked on the screen.
+ */
+
 import { useEffect, useState } from 'react';
 import { FiCheck, FiAlertCircle, FiInfo, FiX } from 'react-icons/fi';
 
+/*
+ * Alert props:
+ *  - type: visual style — 'success' | 'error' | 'warning' | 'info'
+ *  - message: the text to display
+ *  - title: optional bold heading shown above the message
+ *  - autoClose: if true, the alert hides itself after `duration` ms
+ *  - duration: how long (in ms) before auto-close fires (default 5 s)
+ *  - onClose: callback invoked when the alert is dismissed
+ */
 export default function Alert({
   type = 'info',
   message,
@@ -9,8 +28,12 @@ export default function Alert({
   duration = 5000,
   title,
 }) {
+  // `isVisible` controls whether the alert is in the DOM at all.
   const [isVisible, setIsVisible] = useState(true);
 
+  // When `autoClose` is true, start a timer that hides the alert after
+  // `duration` milliseconds. The cleanup function cancels the timer if
+  // the component unmounts before the timer fires (prevents memory leaks).
   useEffect(() => {
     if (autoClose) {
       const timer = setTimeout(() => {
@@ -21,8 +44,13 @@ export default function Alert({
     }
   }, [autoClose, duration, onClose]);
 
+  // Return nothing once the alert has been dismissed so it disappears.
   if (!isVisible) return null;
 
+  /*
+   * typeConfig maps each alert type to its Tailwind colour classes and icon.
+   * This lookup approach avoids a long if/else chain.
+   */
   const typeConfig = {
     success: {
       bgColor: 'bg-green-50',
@@ -54,11 +82,14 @@ export default function Alert({
     },
   };
 
+  // Look up the config for the given type; fall back to 'info' if unknown.
   const config = typeConfig[type] || typeConfig.info;
+  // Capitalised so JSX treats it as a component, not an HTML tag.
   const Icon = config.icon;
 
   return (
     <div
+      // Spread all colour/border classes that come from the config object.
       className={`
         ${config.bgColor}
         ${config.borderColor}
@@ -70,9 +101,12 @@ export default function Alert({
     >
       <Icon className={`flex-shrink-0 ${config.iconColor}`} size={20} />
       <div className="flex-1">
+        {/* Only render the heading element when a title was provided */}
         {title && <h4 className="font-semibold mb-1">{title}</h4>}
         <p className="text-sm">{message}</p>
       </div>
+      {/* Manual close button — `onClose?.()` safely calls onClose only if
+          it was passed as a prop (the ?. is optional-chaining) */}
       <button
         onClick={() => {
           setIsVisible(false);

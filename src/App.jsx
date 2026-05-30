@@ -1,3 +1,9 @@
+/**
+ * App.jsx — Root component of the application.
+ * This component decides which page to show based on whether the user is logged
+ * in and what their role is (admin, doctor, patient, or IT staff). It acts as
+ * the central "traffic controller" for all navigation routes.
+ */
 import { useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth';
@@ -16,16 +22,28 @@ import PatientsPage from './pages/PatientsPage';
 import DoctorManagementPage from './pages/DoctorManagementPage';
 import DoctorDashboard from './pages/DoctorDashboard';
 import SettingsPage from './pages/SettingsPage';
-import AuditLogsPage from './pages/AuditLogsPage';
 import AlertContainer from './components/common/AlertContainer';
 import './App.css';
 
+/**
+ * App is the top-level component rendered by main.jsx.
+ * It reads auth state and renders either the public (login/signup) routes or the
+ * protected (dashboard) routes depending on whether the user is signed in.
+ */
 export default function App() {
+  // Pull the current user object, authentication flag, and loading flag from AuthContext.
   const { user, isAuthenticated, loading } = useAuth();
 
+  /**
+   * Once the user is authenticated, hint to the browser to prefetch font files
+   * in the background so they load faster when first needed.
+   * The dependency array [isAuthenticated] means this effect re-runs whenever
+   * the login status changes.
+   */
   useEffect(() => {
     // Preload critical assets
     if (isAuthenticated) {
+      // Create a <link rel="prefetch"> tag and inject it into <head> at runtime.
       const link = document.createElement('link');
       link.rel = 'prefetch';
       link.href = '/fonts/';
@@ -33,6 +51,11 @@ export default function App() {
     }
   }, [isAuthenticated]);
 
+  /**
+   * While AuthContext is checking localStorage for a saved session, show a
+   * full-screen spinner so the user does not see a blank page or a flash of the
+   * login screen before being redirected to their dashboard.
+   */
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-white">
@@ -47,13 +70,17 @@ export default function App() {
     <div className="min-h-screen bg-secondary-50">
       <AlertContainer />
       
+      {/* If not logged in, only the public login and signup routes are accessible.
+          Any other URL is redirected to /login to protect private pages. */}
       {!isAuthenticated ? (
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
+          {/* The wildcard "*" catches every unmatched URL and sends it to /login. */}
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       ) : (
+        // When logged in, wrap all pages in the shared Layout (sidebar, header, etc.).
         <Layout>
           <Routes>
             {/* Admin Routes */}
@@ -65,7 +92,6 @@ export default function App() {
                 <Route path="/admin/attendance" element={<AttendancePage />} />
                 <Route path="/admin/reminders" element={<ReminderPage />} />
                 <Route path="/admin/reports" element={<ReportsPage />} />
-                <Route path="/admin/audit-logs" element={<AuditLogsPage />} />
                 <Route path="/admin/chat" element={<ChatPage />} />
               </>
             )}
@@ -100,18 +126,20 @@ export default function App() {
               </>
             )}
 
-            {/* Default Route */}
-            <Route 
-              path="/" 
+            {/* Default Route — redirect "/" to the correct dashboard based on role.
+                The ?. (optional chaining) safely accesses user.role even if user is null. */}
+            <Route
+              path="/"
               element={
                 user?.role === 'admin' ? (
                   <Navigate to="/admin/dashboard" replace />
                 ) : user?.role === 'doctor' ? (
                   <Navigate to="/doctor/dashboard" replace />
                 ) : (
+                  // For patients and IT staff, build the path dynamically from their role string.
                   <Navigate to={`/${user?.role}/dashboard`} replace />
                 )
-              } 
+              }
             />
             
             <Route path="/settings" element={<SettingsPage />} />

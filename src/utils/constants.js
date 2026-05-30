@@ -1,11 +1,19 @@
-// User Roles
+/*
+ * constants.js — App-wide constant values shared across components and services.
+ *
+ * Hardcoding strings like 'admin' or 'pending' directly in components is fragile —
+ * a typo anywhere breaks things silently. By defining them once here, every file
+ * imports the same value, and a single change here updates the whole app.
+ */
+
+// User Roles — the three account types that exist in the system.
 export const USER_ROLES = {
   ADMIN: 'admin',
   PATIENT: 'patient',
   DOCTOR: 'doctor',
 };
 
-// Attendance Status
+// Attendance Status — the four possible outcomes for a patient's scheduled visit.
 export const ATTENDANCE_STATUS = {
   PRESENT: 'present',
   ABSENT: 'absent',
@@ -13,7 +21,7 @@ export const ATTENDANCE_STATUS = {
   EXCUSED: 'excused',
 };
 
-// Reminder Status
+// Reminder Status — tracks where a reminder is in its delivery lifecycle.
 export const REMINDER_STATUS = {
   PENDING: 'pending',
   SENT: 'sent',
@@ -21,7 +29,7 @@ export const REMINDER_STATUS = {
   DELIVERED: 'delivered',
 };
 
-// Reminder Frequency
+// Reminder Frequency — how often a recurring reminder should fire.
 export const REMINDER_FREQUENCY = {
   ONCE: 'once',
   DAILY: 'daily',
@@ -29,7 +37,7 @@ export const REMINDER_FREQUENCY = {
   MONTHLY: 'monthly',
 };
 
-// Reminder Channel
+// Reminder Channel — the delivery method used to reach the patient.
 export const REMINDER_CHANNEL = {
   SMS: 'sms',
   EMAIL: 'email',
@@ -37,7 +45,7 @@ export const REMINDER_CHANNEL = {
   IN_APP: 'in_app',
 };
 
-// Message Types
+// Message Types — the kind of content a chat message can carry.
 export const MESSAGE_TYPE = {
   TEXT: 'text',
   IMAGE: 'image',
@@ -45,14 +53,14 @@ export const MESSAGE_TYPE = {
   SYSTEM: 'system',
 };
 
-// Chat Status
+// Chat Status — whether a conversation or user's chat is usable.
 export const CHAT_STATUS = {
   ACTIVE: 'active',
   INACTIVE: 'inactive',
   BLOCKED: 'blocked',
 };
 
-// Alert Types
+// Alert Types — severity levels for toast/notification messages shown to the user.
 export const ALERT_TYPES = {
   SUCCESS: 'success',
   ERROR: 'error',
@@ -60,7 +68,7 @@ export const ALERT_TYPES = {
   INFO: 'info',
 };
 
-// API Endpoints
+// API Endpoints — base path segments for each resource; combined with API_BASE_URL in api.js.
 export const API_ENDPOINTS = {
   AUTH: '/auth',
   PATIENTS: '/patients',
@@ -71,14 +79,14 @@ export const API_ENDPOINTS = {
   REPORTS: '/reports',
 };
 
-// Pagination
+// Pagination — default values used when fetching list data from the API.
 export const PAGINATION = {
   DEFAULT_PAGE: 1,
   DEFAULT_LIMIT: 20,
   MAX_LIMIT: 100,
 };
 
-// Date Formats
+// Date Formats — format strings consumed by the date-fns `format()` function in formatters.js.
 export const DATE_FORMATS = {
   DISPLAY: 'MMM dd, yyyy',
   DISPLAY_WITH_TIME: 'MMM dd, yyyy hh:mm a',
@@ -87,14 +95,14 @@ export const DATE_FORMATS = {
   LONG: 'EEEE, MMMM dd, yyyy',
 };
 
-// Time Formats
+// Time Formats — format strings for displaying time portions of a date.
 export const TIME_FORMATS = {
   SHORT: 'h:mm a',
   LONG: 'h:mm:ss a',
   ISO: 'HH:mm:ss',
 };
 
-// Validation Rules
+// Validation Rules — numeric limits used by validators.js to enforce field constraints.
 export const VALIDATION_RULES = {
   PASSWORD_MIN_LENGTH: 8,
   PASSWORD_MAX_LENGTH: 128,
@@ -107,7 +115,7 @@ export const VALIDATION_RULES = {
   MRN_MAX_LENGTH: 20,
 };
 
-// File Upload
+// File Upload — restrictions applied when users upload documents or images.
 export const FILE_UPLOAD = {
   MAX_SIZE_MB: 10,
   ALLOWED_TYPES: [
@@ -121,7 +129,7 @@ export const FILE_UPLOAD = {
   ALLOWED_EXTENSIONS: ['pdf', 'jpg', 'jpeg', 'png', 'gif', 'csv', 'xls', 'xlsx'],
 };
 
-// Report Types
+// Report Types — identifiers for the different kinds of reports the admin can generate.
 export const REPORT_TYPES = {
   ATTENDANCE: 'attendance',
   REMINDERS: 'reminders',
@@ -129,7 +137,7 @@ export const REPORT_TYPES = {
   PATIENT_SUMMARY: 'patient_summary',
 };
 
-// Report Formats
+// Report Formats — the file formats available when exporting a report (used by useReportExport).
 export const REPORT_FORMATS = {
   PDF: 'pdf',
   CSV: 'csv',
@@ -137,7 +145,7 @@ export const REPORT_FORMATS = {
   JSON: 'json',
 };
 
-// Default Values
+// Default Values — miscellaneous timing and size defaults used throughout the app.
 export const DEFAULTS = {
   PAGE_SIZE: 20,
   ALERT_DURATION: 5000,
@@ -145,7 +153,7 @@ export const DEFAULTS = {
   SOCKET_RECONNECT_DELAY: 1000,
 };
 
-// Cache Keys
+// Cache Keys — string keys used when reading/writing items in localStorage or a cache layer.
 export const CACHE_KEYS = {
   USER: 'user',
   CONVERSATIONS: 'conversations',
@@ -153,7 +161,8 @@ export const CACHE_KEYS = {
   REMINDERS: 'reminders',
 };
 
-// Feature Flags
+// Feature Flags — boolean switches that enable or disable entire features without code changes.
+// Set a flag to `false` to hide a feature in production while it's still being built.
 export const FEATURES = {
   LIVE_CHAT: true,
   SMS_REMINDERS: true,
@@ -164,7 +173,8 @@ export const FEATURES = {
   OFFLINE_MODE: false,
 };
 
-// App Configuration
+// App Configuration — top-level app metadata read from environment variables at build time.
+// `import.meta.env` is Vite's way of injecting .env file values into the bundle.
 export const APP_CONFIG = {
   NAME: import.meta.env.VITE_APP_NAME || 'Burjeel Smart Care',
   VERSION: import.meta.env.VITE_APP_VERSION || '1.0.0',
@@ -172,7 +182,8 @@ export const APP_CONFIG = {
   WS_URL: import.meta.env.VITE_WS_URL || 'ws://localhost:8000',
 };
 
-// Navigation Items
+// Navigation Items — the sidebar links rendered for each user role.
+// Keeping nav structure here (not inside a component) makes it easy to add or reorder pages.
 export const ADMIN_NAV_ITEMS = [
   { label: 'Dashboard', path: '/admin/dashboard', icon: 'dashboard' },
   { label: 'Patients', path: '/admin/patients', icon: 'users' },

@@ -1,3 +1,10 @@
+/*
+ * LoginPage.jsx
+ * This is the login page for Burjeel Smart Care.
+ * It is the first screen all users (admin, doctor, patient) see before accessing the app.
+ * It collects a username and password, validates them, then calls the login API.
+ */
+
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
@@ -11,13 +18,18 @@ import { FiUser, FiLock } from 'react-icons/fi';
 import { APP_CONFIG } from '../utils/constants';
 
 export default function LoginPage() {
+  // formData holds the current values typed into the username and password fields.
   const [formData, setFormData] = useState({ username: '', password: '' });
+  // errors stores validation messages (e.g. "Password is required") shown under each field.
   const [errors, setErrors] = useState({});
+  // loading is true while the login request is in progress, which disables the submit button.
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
   const { error: showError, success: showSuccess } = useContext(AlertContext);
 
+  // Checks that username is filled in and password meets the minimum length rule.
+  // Returns true if everything is valid, false otherwise (and populates `errors`).
   const validateForm = () => {
     const newErrors = {};
 
@@ -32,12 +44,17 @@ export default function LoginPage() {
     }
 
     setErrors(newErrors);
+    // Object.keys(newErrors).length === 0 means there are no errors — form is valid.
     return Object.keys(newErrors).length === 0;
   };
 
+  // Called when the user clicks "Sign In". Prevents the default browser form submission,
+  // validates the fields, then sends the credentials to the backend login API.
   const handleSubmit = async (e) => {
+    // Stops the browser from refreshing the page on form submit.
     e.preventDefault();
 
+    // Stop early if validation fails — don't bother calling the API.
     if (!validateForm()) return;
 
     setLoading(true);
@@ -46,6 +63,7 @@ export default function LoginPage() {
 
       if (result.success) {
         showSuccess('Login successful!');
+        // Redirect to the home/dashboard page after a successful login.
         navigate('/');
       } else {
         showError(result.error || 'Login failed');
@@ -53,16 +71,21 @@ export default function LoginPage() {
     } catch (err) {
       showError(err.message || 'An error occurred');
     } finally {
+      // Always turn off the loading spinner when the request finishes, success or not.
       setLoading(false);
     }
   };
 
+  // Updates the matching field inside formData whenever the user types in an input.
+  // Also clears the error message for that field so it disappears while the user is fixing it.
   const handleInputChange = (e) => {
     const { name, value } = e.target;
+    // Spread operator (...prev) keeps all existing fields and only overwrites the changed one.
     setFormData((prev) => ({
       ...prev,
       [name]: value,
     }));
+    // If there was an error for this field, clear it now that the user is editing.
     if (errors[name]) {
       setErrors((prev) => ({
         ...prev,

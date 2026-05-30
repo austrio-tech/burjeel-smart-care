@@ -1,5 +1,27 @@
+/*
+ * Input.jsx — The reusable text input field used in every form across
+ * the app (login, patient registration, appointment booking, settings, etc.).
+ *
+ * It wraps a standard HTML `<input>` with a label, optional leading icon,
+ * optional clear button, validation error display, and a hint text area.
+ * `forwardRef` is used so parent components (and form libraries) can access
+ * the underlying DOM element directly if needed.
+ */
+
 import { forwardRef } from 'react';
 
+/*
+ * Input props:
+ *  - label: text shown above the field
+ *  - error: validation error string shown in red below the field
+ *  - hint: helper text shown below the field when there is no error
+ *  - type: HTML input type (text, email, password, number…)
+ *  - icon: optional react-icons component shown inside the left edge
+ *  - clearable: shows an X button on the right when the field has a value
+ *  - onClear: callback invoked when the X button is clicked
+ *  - required: adds a red asterisk after the label
+ *  - className: extra Tailwind classes merged onto the `<input>` element
+ */
 const Input = forwardRef(
   (
     {
@@ -22,14 +44,19 @@ const Input = forwardRef(
   ) => {
     return (
       <div className="w-full">
+        {/* Only render the label element when a label string was provided */}
         {label && (
           <label className="block text-sm font-semibold text-secondary-700 mb-2">
             {label}
+            {/* Red asterisk to signal a required field */}
             {required && <span className="text-danger ml-1">*</span>}
           </label>
         )}
 
+        {/* `relative` wrapper lets the icon and clear button be positioned
+            inside the input using absolute positioning */}
         <div className="relative">
+          {/* Leading icon — only rendered when an icon component is passed */}
           {Icon && <Icon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-secondary-400" size={20} />}
 
           <input
@@ -52,6 +79,8 @@ const Input = forwardRef(
             {...props}
           />
 
+          {/* Clear button — only shown when `clearable` is true AND the field
+              has a value; clicking it calls `onClear` to reset the value */}
           {clearable && value && (
             <button
               type="button"
@@ -70,6 +99,7 @@ const Input = forwardRef(
           )}
         </div>
 
+        {/* Error message takes priority over the hint text */}
         {error && <p className="text-sm text-danger mt-1">{error}</p>}
         {hint && !error && <p className="text-sm text-secondary-500 mt-1">{hint}</p>}
       </div>
@@ -77,6 +107,8 @@ const Input = forwardRef(
   }
 );
 
+// Setting displayName makes this component show as "Input" in React DevTools
+// instead of the generic "ForwardRef" label.
 Input.displayName = 'Input';
 
 export default Input;

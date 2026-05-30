@@ -1,178 +1,145 @@
-# Burjeel Smart Care – Frontend (React)
+# Burjeel Smart Care — Frontend
 
-A responsive web application for the **Burjeel Smart Care** intelligent patient management and doctor appointment management system. Built with **React** and deployed on **Vercel**.
-
----
-
-## 📋 Project Overview
-
-This frontend provides:
-- **Admin Dashboard** – manage patients, schedule reminders, track attendance, view reports.
-- **Patient Portal** – receive SMS reminders, view appointments, use the **live chat**.
-- **Pharmacist & IT Staff** interfaces – role‑based access for medication checks and system maintenance.
+A React web application for managing patients, reminders, attendance, and communication at Burjeel Hospital. Different users (admin, doctor, patient, IT staff) each see a tailored dashboard with only the tools relevant to their role.
 
 ---
 
-## 🧠 Development Methodology
+## Tech Stack
 
-We use the **DSDM (Agile)** methodology:
-- **Iterative delivery** of features in short cycles.
-- **Continuous feedback** from hospital stakeholders.
-- **Prioritised requirements** using MoSCoW.
-- **Timeboxed development** for each module (Dashboards, Reminders, Chat, Reports).
-
----
-
-## 🛠 Tech Stack
-
-| Layer          | Technology                          |
-|----------------|-------------------------------------|
-| Library        | React 18 (with Vite)                |
-| Routing        | React Router DOM v6                 |
-| State Management| Context API + useReducer (for auth & global alerts) |
-| Styling        | Tailwind CSS                        |
-| HTTP Client    | Axios                               |
-| Icons          | React Icons / Heroicons             |
-| Charting       | Recharts (for admin analytics)      |
-| Real‑time Chat | WebSocket (native) or Socket.IO client |
-| Hosting        | Vercel                              |
+| What | Tool |
+|---|---|
+| UI Framework | React 18 |
+| Build Tool | Vite 5 |
+| Routing | React Router v6 |
+| Styling | Tailwind CSS |
+| HTTP Requests | Axios |
+| Real-time Chat | Socket.IO client |
+| Charts | Recharts |
+| Icons | React Icons |
+| Export (CSV/Excel/PDF) | SheetJS, jsPDF, file-saver |
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 src/
-├── assets/                 # Images, fonts, static files
-├── components/             # Reusable UI components
-│   ├── Layout/            # Navbar, Sidebar, Footer
-│   ├── Forms/             # Login, Register, Schedule reminder forms
-│   ├── Dashboard/         # Stats cards, attendance table, report charts
-│   ├── Chat/              # ChatWindow, MessageBubble, ChatSidebar
-│   └── common/            # Buttons, Modals, Alerts, Loaders
-├── contexts/              # AuthContext, ChatContext, AlertContext
-├── hooks/                 # Custom hooks (useAuth, useFetch, useSocket)
-├── pages/                 # Route pages
+├── main.jsx              # App entry point — mounts React, wraps everything in providers
+├── App.jsx               # Root component — handles routing and role-based page access
+├── App.css               # Global styles
+│
+├── contexts/             # Shared state accessible anywhere in the app
+│   ├── AuthContext.jsx   # Who is logged in, login/logout logic
+│   ├── AlertContext.jsx  # Toast notification system (success, error, warning)
+│   └── ChatContext.jsx   # Real-time chat state and Socket.IO connection
+│
+├── hooks/                # Reusable logic extracted into functions
+│   ├── useAuth.js        # Easy access to the auth context
+│   ├── useSocket.js      # Easy access to the chat context
+│   ├── useReportExport.js# CSV / Excel / PDF export logic
+│   └── useFetch.js       # Generic fetch wrapper (legacy, mostly unused)
+│
+├── services/             # All API calls to the backend — one file per topic
+│   ├── api.js            # Axios instance with auth token injection
+│   ├── authService.js    # Login, register, get current user
+│   ├── patientService.js # Create, read, update, delete patients
+│   ├── attendanceService.js # Mark and fetch attendance records
+│   ├── reminderService.js   # Schedule and send reminders
+│   ├── reportsService.js    # Attendance and reminder analytics
+│   ├── userService.js    # Admin user management
+│   └── chatService.js    # Conversations and messages
+│
+├── components/
+│   ├── Layout/           # The shell around every page
+│   │   ├── Layout.jsx    # Sidebar + navbar + content area wrapper
+│   │   ├── Sidebar.jsx   # Left navigation — links change per role
+│   │   ├── Navbar.jsx    # Top bar with hamburger menu
+│   │   └── Footer.jsx    # Bottom bar
+│   └── common/           # Reusable UI building blocks
+│       ├── Alert.jsx         # Single toast notification
+│       ├── AlertContainer.jsx# Renders all active toasts
+│       ├── Badge.jsx         # Coloured status label
+│       ├── Button.jsx        # Styled button with variants
+│       ├── Card.jsx          # White box container
+│       ├── ExportMenu.jsx    # Dropdown to export CSV/Excel/PDF
+│       ├── Input.jsx         # Text input with icon support
+│       ├── Loader.jsx        # Full-page loading spinner
+│       ├── Modal.jsx         # Pop-up dialog
+│       ├── Select.jsx        # Dropdown selector
+│       └── Table.jsx         # Data table with striping and hover
+│
+├── pages/                # One file per screen
 │   ├── LoginPage.jsx
+│   ├── SignupPage.jsx
 │   ├── AdminDashboard.jsx
+│   ├── DoctorDashboard.jsx
 │   ├── PatientDashboard.jsx
-│   ├── AttendancePage.jsx
+│   ├── PatientsPage.jsx        # Admin/doctor patient management
+│   ├── DoctorManagementPage.jsx
 │   ├── ReminderPage.jsx
+│   ├── AttendancePage.jsx
+│   ├── ReportsPage.jsx
 │   ├── ChatPage.jsx
-│   └── ReportsPage.jsx
-├── services/              # Axios API calls (api.js, authService, reminderService)
-├── utils/                 # Helper functions (formatters, validators)
-├── App.jsx
-├── main.jsx               # Entry point, BrowserRouter
-└── index.css              # Tailwind imports & global styles
+│   ├── PatientDoctorsPage.jsx
+│   ├── PatientAppointments.jsx
+│   ├── SettingsPage.jsx
+│   └── ITDashboard (via AdminDashboard)
+│
+└── utils/                # Pure helper functions
+    ├── constants.js      # App-wide fixed values
+    ├── formatters.js     # Date, number, text formatting
+    └── validators.js     # Form field validation rules
 ```
 
 ---
 
-## 🚀 Getting Started
+## How It Works
 
-### Prerequisites
-- Node.js (v18+)
-- npm or yarn
+### Authentication
+When a user logs in, the backend returns a JWT token. The frontend stores that token in `localStorage` and attaches it to every API request via an Axios interceptor. On page load, `AuthContext` reads the token from `localStorage` to restore the session automatically.
 
-### Installation
+### Role-Based Routing
+`App.jsx` checks `user.role` and only renders routes that belong to that role. An admin cannot accidentally visit a patient page and vice versa. The sidebar in `Sidebar.jsx` mirrors this — each role has its own list of navigation links.
+
+### Real-time Chat
+`ChatContext` opens a Socket.IO connection to the backend when the user is logged in. Messages sent by others arrive instantly via the `message` event. Typing indicators use the `user_typing` event.
+
+### Notifications
+`AlertContext` holds a list of active toast messages. Any component can call `success("Done!")` or `error("Something went wrong")` and a toast appears on screen and auto-dismisses after a few seconds.
+
+---
+
+## Running Locally
+
 ```bash
-git clone <frontend-repo-url> burjeel-smartcare-frontend
-cd burjeel-smartcare-frontend
+# Install dependencies
 npm install
-```
 
-### Environment Variables
-Create a `.env` file in the root:
-```env
-VITE_API_BASE_URL=http://localhost:8000/api   # Backend URL (Render during production)
-VITE_WS_URL=ws://localhost:8000               # WebSocket URL for chat
-VITE_APP_NAME=Burjeel Smart Care
-```
-
-### Run Development Server
-```bash
+# Start development server (with hot reload)
 npm run dev
-```
-The app will run on `http://localhost:5173`.
 
----
-
-## 🔧 How the Application Works
-
-### 1. Authentication & Authorisation
-- Users login via the `/login` page.
-- JWT token is stored in `localStorage` (or memory) and sent via `Authorization` header.
-- `AuthContext` provides user data and role.
-- Protected routes (`/admin/*`, `/patient/*`) check role and token validity.
-
-### 2. Key Pages & Components
-
-| Page                | Main Components                                    | Description |
-|---------------------|----------------------------------------------------|-------------|
-| **Login**           | LoginForm                                          | Role‑based redirect after login. |
-| **Admin Dashboard** | StatsCard, ReminderTable, AttendanceChart, ReportButton | Overview of all patients, reminders sent, attendance rates. |
-| **Patient Management** | PatientTable, SearchBar, AddPatientModal       | CRUD operations for patient records. |
-| **Reminders**       | ReminderList, ScheduleReminderForm                | View, create, and edit reminder schedules. |
-| **Attendance**      | AttendanceLog, MarkAttendanceButton               | Track “Came” / “Not came” with timestamp. |
-| **Live Chat**       | ChatWindow, MessageInput                          | Real‑time messaging between patients and staff (WebSocket). |
-| **Reports**         | DateRangePicker, Charts (bar, pie)                 | Attendance and reminder statistics. |
-
-### 3. State Management
-- **AuthContext** – user details, token, login/logout functions.
-- **AlertContext** – global success/error/info messages.
-- **ChatContext** – holds current chat history and WebSocket connection.
-
-### 4. API Integration
-All backend calls are grouped in `src/services/`:
-- `api.js` – Axios instance with interceptors (adds token, handles 401).
-- `authService.js` – login, register, logout.
-- `patientService.js` – patient CRUD.
-- `reminderService.js` – schedule, send manual reminders.
-- `attendanceService.js` – mark attendance, fetch logs.
-- `chatService.js` – WebSocket connection and message history.
-
----
-
-## 📦 Build & Deployment to Vercel
-
-1. Build the project:
-```bash
+# Build for production
 npm run build
+
+# Preview the production build locally
+npm run preview
 ```
-2. Install Vercel CLI and deploy:
-```bash
-npm i -g vercel
-vercel --prod
-```
-3. Set environment variables in Vercel dashboard (same as `.env` values).
 
-The `build` output will be auto‑detected by Vercel. Your React app will be live at `https://burjeel-smartcare.vercel.app`.
+The app expects the backend running at `http://localhost:8000`. Copy `.env.example` to `.env` and adjust if needed.
 
 ---
 
-## 🔗 Backend Integration
+## Deployment (Vercel)
 
-- The React app expects a REST API at `VITE_API_BASE_URL`.
-- All endpoints return JSON.
-- WebSocket endpoint (`VITE_WS_URL`) is used only for the live chat.
-- CORS must be enabled on the backend for the Vercel domain.
+The `vercel.json` at the project root rewrites all URLs to `index.html`, which is required for React Router to work correctly when a user refreshes the page or lands directly on a route.
 
 ---
 
-## 🧪 Testing & Quality
+## Environment Variables
 
-- **Component tests** with React Testing Library (optional).
-- **Linting** with ESLint and Prettier.
-- Husky pre‑commit hooks for consistent formatting.
-
----
-
-## ✅ Contribution & Workflow
-
-1. Create a feature branch from `dev` (e.g., `feature/chat-box`).
-2. Implement changes following the DSDM iteration plan.
-3. Submit a pull request with a description.
-4. Once approved, merge into `dev` and deploy to Vercel preview.
-
----
+| Variable | Purpose |
+|---|---|
+| `VITE_API_BASE_URL` | Backend API base URL (e.g. `http://localhost:8000/api/v1`) |
+| `VITE_WS_URL` | WebSocket server URL (e.g. `ws://localhost:8000`) |
+| `VITE_APP_NAME` | Application display name |
+| `VITE_APP_VERSION` | Version shown in the sidebar footer |

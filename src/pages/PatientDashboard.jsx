@@ -1,3 +1,10 @@
+/*
+ * PatientDashboard.jsx
+ * This is the main home screen for users with the "patient" role.
+ * It shows the patient their upcoming medication and doctor-visit reminders,
+ * two pie charts summarising reminder types and completion status, and quick action buttons.
+ */
+
 import { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Card from '../components/common/Card';
@@ -15,48 +22,57 @@ export default function PatientDashboard() {
   const { error: showError } = useContext(AlertContext);
   const { exportData, isExporting } = useReportExport();
   const navigate = useNavigate();
-  
+
+  // patientData holds the patient's profile returned from /patients/me.
   const [patientData, setPatientData] = useState(null);
+  // reminders is the full list of this patient's reminders (sorted chronologically).
   const [reminders, setReminders] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Chart data state
+  // typeData and statusData feed the two pie charts on this page.
   const [typeData, setTypeData] = useState([]);
   const [statusData, setStatusData] = useState([]);
 
+  // A fixed palette of colours used to colour pie chart slices.
   const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444'];
 
+  /*
+   * Runs once when the component first appears on screen.
+   * Fetches the patient's own profile and their reminder list from the backend,
+   * then pre-processes the data for the cards and charts.
+   */
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
         setLoading(true);
-        // Fetch patient profile
+        // /patients/me returns the profile record linked to the currently logged-in user.
         const profileRes = await api.get('/patients/me');
         setPatientData(profileRes);
-        
-        // Fetch reminders (the backend auto-filters by patient's user_id)
+
+        // The backend automatically returns only this patient's reminders based on their login token.
         const remindersRes = await api.get('/reminders/');
-        
-        const now = new Date();
+
         const formattedReminders = remindersRes
           .map(r => {
             const isDoctor = r.reminder_type === 'doctor_visit';
             return {
               id: r.reminder_id,
+              // Prefix doctor names with "Dr." to make them more readable.
               title: isDoctor ? `Dr. ${r.display_name}` : r.display_name,
               type: isDoctor ? 'Doctor Visit' : 'Medication',
               date: new Date(r.scheduled_date).toLocaleDateString(),
               time: new Date(r.scheduled_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
               status: r.status,
+              // rawDate is kept as a Date object so we can sort and filter numerically.
               rawDate: new Date(r.scheduled_date),
               isDoctor
             };
           })
-          .sort((a, b) => a.rawDate - b.rawDate);
-          
+          .sort((a, b) => a.rawDate - b.rawDate); // Soonest reminder first.
+
         setReminders(formattedReminders);
 
-        // Calculate chart statistics
+        // Count medication vs. doctor-visit reminders to populate the first pie chart.
         const medCount = formattedReminders.filter(r => !r.isDoctor).length;
         const docCount = formattedReminders.filter(r => r.isDoctor).length;
         setTypeData([
@@ -64,6 +80,7 @@ export default function PatientDashboard() {
           { name: 'Doctor Visits', value: docCount },
         ]);
 
+        // Count completed vs. pending reminders to populate the second pie chart.
         const completedCount = formattedReminders.filter(r => r.status === 'completed').length;
         const pendingCount = formattedReminders.filter(r => r.status !== 'completed').length;
         setStatusData([
@@ -77,10 +94,11 @@ export default function PatientDashboard() {
         setLoading(false);
       }
     };
-    
+
     fetchDashboardData();
   }, [showError]);
 
+  // Exports the patient's full reminder list to a downloadable file.
   const handleExport = (format) => {
     exportData({
       data: reminders,
@@ -100,6 +118,7 @@ export default function PatientDashboard() {
     return <div className="flex h-full items-center justify-center">Loading dashboard...</div>;
   }
 
+  // Only show reminders whose scheduled date is today or in the future.
   const upcomingReminders = reminders.filter(a => a.rawDate >= new Date());
   const upcomingCount = upcomingReminders.length;
 

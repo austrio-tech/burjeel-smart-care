@@ -1,3 +1,9 @@
+/*
+ * PatientDoctorsPage.jsx
+ * This page is visible to patients. It lists all the doctors registered in the hospital
+ * so that a patient can browse specialties and send a booking message through the chat system.
+ */
+
 import { useState, useEffect, useContext } from 'react';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
@@ -7,16 +13,20 @@ import { useNavigate } from 'react-router-dom';
 import { AlertContext } from '../contexts/AlertContext';
 
 export default function PatientDoctorsPage() {
+  // doctors holds the list of all users with the role "doctor".
   const [doctors, setDoctors] = useState([]);
   const [loading, setLoading] = useState(true);
   const { error: showError } = useContext(AlertContext);
   const navigate = useNavigate();
 
+  /*
+   * Runs once on mount. Calls the auth/users endpoint with a role filter
+   * to fetch only doctors (not admins or patients).
+   */
   useEffect(() => {
     const fetchDoctors = async () => {
       try {
         setLoading(true);
-        // Using the auth/users endpoint to fetch doctors
         const res = await api.get('/auth/users?role=doctor');
         setDoctors(res);
       } catch (err) {
@@ -28,17 +38,19 @@ export default function PatientDoctorsPage() {
     fetchDoctors();
   }, [showError]);
 
+  // Sends a pre-written appointment request message to the selected doctor via the chat API,
+  // then navigates to the chat page so the patient can continue the conversation.
   const handleBookAppointment = async (doctor) => {
     try {
-      // Create a message in the chat
       const messageText = `Hi Dr. ${doctor.username}, I would like to book an appointment with you. Please let me know your availability.`;
-      
+
+      // Post the message directly to the chat API so it appears in the chat thread.
       await api.post('/chat/messages/', {
         receiver_id: doctor.user_id,
         message_text: messageText
       });
-      
-      // Navigate to chat
+
+      // Redirect to the chat page after sending so the patient can follow up.
       navigate('/patient/chat');
     } catch (err) {
       showError('Failed to initiate appointment request');

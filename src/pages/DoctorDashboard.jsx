@@ -1,3 +1,10 @@
+/*
+ * DoctorDashboard.jsx
+ * This is the main home screen for users with the "doctor" role.
+ * It shows the doctor a personalised overview: total patients, upcoming appointments
+ * (doctor_visit reminders from today onwards), and a table of those appointments.
+ */
+
 import { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FiUsers, FiCalendar, FiClock } from 'react-icons/fi';
@@ -14,17 +21,24 @@ import { useAuth } from '../hooks/useAuth';
 
 export default function DoctorDashboard() {
   const navigate = useNavigate();
+  // user contains the currently logged-in doctor's info (username, role, etc.).
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
+  // stats holds the three summary numbers shown in the stat cards at the top.
   const [stats, setStats] = useState({
     totalPatients: 0,
     upcomingAppointments: 0,
     myReminders: 0,
   });
+  // recentAppointments is the processed list rendered in the table below.
   const [recentAppointments, setRecentAppointments] = useState([]);
   const { error } = useContext(AlertContext);
   const { exportData, isExporting } = useReportExport();
 
+  /*
+   * Runs once on mount. Fetches patients and reminders simultaneously,
+   * then filters reminders to only those of type 'doctor_visit' scheduled today or later.
+   */
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
@@ -35,6 +49,7 @@ export default function DoctorDashboard() {
         ]);
 
         const today = new Date().toISOString().split('T')[0];
+        // Keep only doctor_visit reminders that are scheduled from today onwards.
         const upcoming = reminders.filter(r => r.reminder_type === 'doctor_visit' && r.scheduled_date && r.scheduled_date >= today);
 
         setStats({
@@ -45,14 +60,15 @@ export default function DoctorDashboard() {
 
         setRecentAppointments(
           upcoming
-            .slice()
-            .sort((a, b) => new Date(b.scheduled_date) - new Date(a.scheduled_date))
-            .slice(0, 10)
+            .slice() // Copy the array before sorting so the original isn't mutated.
+            .sort((a, b) => new Date(b.scheduled_date) - new Date(a.scheduled_date)) // Newest first.
+            .slice(0, 10) // Limit to 10 rows in the table.
             .map(r => {
             const patient = patients.find(p => p.patient_id === r.patient_id);
             return {
               id: r.reminder_id,
               patientName: patient?.full_name || `Patient ${r.patient_id}`,
+              // A reminder is "Notified" if at least one SMS was successfully delivered.
               status: r.success_sent > 0 ? 'Notified' : 'Pending',
               time: new Date(r.scheduled_date).toLocaleString('en-US', { timeZone: 'Asia/Muscat', hour12: true }),
             };
@@ -69,12 +85,14 @@ export default function DoctorDashboard() {
     fetchData();
   }, [error]);
 
+  // Column definitions for the appointments table.
   const columns = [
     { key: 'patientName', label: 'Patient Name' },
     { key: 'time', label: 'Time' },
     {
       key: 'status',
       label: 'Status',
+      // Render a coloured pill badge: green for Notified, yellow for Pending.
       render: (status) => (
         <span
           className={`px-3 py-1 rounded-full text-xs font-semibold ${
@@ -89,6 +107,7 @@ export default function DoctorDashboard() {
     },
   ];
 
+  // Downloads the appointments table as a file in the chosen format (CSV or PDF).
   const handleExport = (format) => {
     exportData({
       data: recentAppointments,

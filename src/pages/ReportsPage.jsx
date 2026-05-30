@@ -1,3 +1,10 @@
+/*
+ * ReportsPage.jsx
+ * This analytics page is visible to admins. It displays hospital-wide statistics
+ * through summary cards and two charts: a weekly attendance bar chart and a reminder
+ * delivery pie chart. Staff can also filter and export the raw data as a file.
+ */
+
 import { useState, useEffect, useContext } from 'react';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import Card from '../components/common/Card';
@@ -14,25 +21,37 @@ import * as reminderService from '../services/reminderService';
 import * as attendanceService from '../services/attendanceService';
 
 export default function ReportsPage() {
+  // reportType determines which dataset is used when exporting (attendance, reminders, appointments).
   const [reportType, setReportType] = useState('attendance');
+  // dateRange is selected in a dropdown but currently used for UI only (export uses startDate/endDate).
   const [dateRange, setDateRange] = useState('month');
+  // startDate and endDate are optional filters applied when exporting data.
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [loading, setLoading] = useState(true);
+  // stats holds the four headline numbers shown in the summary cards.
   const [stats, setStats] = useState({
     totalPatients: 0,
     avgAttendance: 0,
     remindersSent: 0,
     appointments: 0,
   });
+  // attendanceData is shaped for the bar chart: one entry per day of the week.
   const [attendanceData, setAttendanceData] = useState([]);
+  // reminderData is shaped for the pie chart: sent vs. failed counts.
   const [reminderData, setReminderData] = useState([]);
+  // rawData keeps the original API responses so the export handler can apply date filters.
   const [rawData, setRawData] = useState({ patients: [], reminders: [], attendances: [] });
   const { error: showError } = useContext(AlertContext);
   const { exportData, isExporting } = useReportExport();
 
+  // Colour palette used for pie chart slices.
   const COLORS = ['#10b981', '#3b82f6', '#ef4444'];
 
+  /*
+   * Runs once on mount. Fetches all four data sources in parallel, then processes
+   * the attendance records into a day-of-week breakdown for the bar chart.
+   */
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
@@ -43,16 +62,20 @@ export default function ReportsPage() {
           attendanceService.getAttendances(),
           reportsService.getAttendanceReport(),
         ]);
-        
+
+        // Store the raw arrays so handleExport can filter them later.
         setRawData({ patients, reminders, attendances });
 
         setStats({
           totalPatients: patients.length,
           avgAttendance: attendanceReport?.attendance_rate || 0,
+          // reduce sums up the success_sent field across all reminders.
           remindersSent: reminders.reduce((acc, r) => acc + (r.success_sent || 0), 0),
           appointments: attendances.length,
         });
 
+        // Build an array of seven day buckets. Each attendance record is sorted into the
+        // bucket for its day of the week using JavaScript's getDay() (0 = Sunday).
         const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
         const weeklyData = days.map(day => ({
           date: day,
@@ -66,6 +89,7 @@ export default function ReportsPage() {
           const dayName = days[date.getDay()];
           const dayData = weeklyData.find(d => d.date === dayName);
           if (dayData) {
+            // Increment the correct counter based on the attendance status value.
             if (att.status === 'present' || att.status === 'came') dayData.present++;
             else if (att.status === 'absent' || att.status === 'not came') dayData.absent++;
             else if (att.status === 'late') dayData.late++;
@@ -73,6 +97,7 @@ export default function ReportsPage() {
         });
         setAttendanceData(weeklyData);
 
+        // Aggregate total sent and failed counts across all reminders for the pie chart.
         setReminderData([
           { name: 'Sent', value: reminders.reduce((acc, r) => acc + (r.success_sent || 0), 0) },
           { name: 'Failed', value: reminders.reduce((acc, r) => acc + (r.failed_sent || 0), 0) },
@@ -88,10 +113,13 @@ export default function ReportsPage() {
     fetchData();
   }, [showError]);
 
+  // Builds the correct dataset for the selected report type, applies optional date filters,
+  // then triggers a file download in the chosen format.
   const handleExport = (format) => {
     let dataToExport = [];
     let columns = [];
 
+    // Choose which raw dataset to export based on the reportType dropdown selection.
     if (reportType === 'attendance' || reportType === 'appointments') {
       dataToExport = rawData.attendances;
       columns = [
@@ -110,16 +138,19 @@ export default function ReportsPage() {
       ];
     }
 
+    // If the user typed a start date, remove all records earlier than that date.
     if (startDate) {
       dataToExport = dataToExport.filter(item => {
         const d = new Date(item.appointment_date || item.scheduled_date);
         return d >= new Date(startDate);
       });
     }
+    // If the user typed an end date, remove all records after the end of that day.
     if (endDate) {
       dataToExport = dataToExport.filter(item => {
         const d = new Date(item.appointment_date || item.scheduled_date);
         const end = new Date(endDate);
+        // setHours(23,59,59,999) sets the end time to the very last millisecond of the day.
         end.setHours(23, 59, 59, 999);
         return d <= end;
       });
@@ -190,6 +221,7 @@ export default function ReportsPage() {
           <Card key={idx}>
             <p className="text-secondary-500 text-sm font-medium mb-1">{metric.label}</p>
             <p className="text-3xl font-bold text-secondary-900 mb-2">{metric.value}</p>
+            {/* Show the trend value in green if it starts with '+', red if it starts with '-'. */}
             <p className={`text-sm font-semibold ${metric.change.startsWith('+') ? 'text-green-600' : 'text-red-600'}`}>
               {metric.change}
             </p>

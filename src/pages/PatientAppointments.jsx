@@ -1,3 +1,10 @@
+/*
+ * PatientAppointments.jsx
+ * This page is visible to patients. It shows a full history of all their reminders
+ * (both medication and doctor visits) sorted newest first, and lets them export the list.
+ * Unlike the dashboard, this page shows past records too — not just upcoming ones.
+ */
+
 import { useState, useEffect, useContext } from 'react';
 import Card from '../components/common/Card';
 import Table from '../components/common/Table';
@@ -11,31 +18,39 @@ import { AlertContext } from '../contexts/AlertContext';
 export default function PatientAppointments() {
   const { error: showError } = useContext(AlertContext);
   const { exportData, isExporting } = useReportExport();
-  
+
+  // reminders holds the formatted list of all reminders for this patient.
   const [reminders, setReminders] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  /*
+   * Runs once when the page loads. Fetches the patient's full reminder history,
+   * formats each record for display, and sorts them newest-first.
+   */
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
+        // The backend automatically returns only this logged-in patient's reminders.
         const remindersRes = await api.get('/reminders/');
-        
+
         const formattedReminders = remindersRes
           .map(r => {
             const isDoctor = r.reminder_type === 'doctor_visit';
             return {
               id: r.reminder_id,
+              // Doctor-visit reminders show the doctor's name prefixed with "Dr.".
               title: isDoctor ? `Dr. ${r.display_name}` : r.display_name,
               type: isDoctor ? 'Doctor Visit' : 'Medication',
               date: new Date(r.scheduled_date).toLocaleDateString(),
               time: new Date(r.scheduled_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
               status: r.status,
+              // rawDate is stored as a Date object so we can sort numerically.
               rawDate: new Date(r.scheduled_date),
             };
           })
-          .sort((a, b) => b.rawDate - a.rawDate);
-          
+          .sort((a, b) => b.rawDate - a.rawDate); // Newest reminder at the top.
+
         setReminders(formattedReminders);
       } catch (err) {
         showError('Failed to load appointments data');
@@ -43,10 +58,11 @@ export default function PatientAppointments() {
         setLoading(false);
       }
     };
-    
+
     fetchData();
   }, [showError]);
 
+  // Exports the full reminder history to a downloadable file in the chosen format.
   const handleExport = (format) => {
     exportData({
       data: reminders,
@@ -62,11 +78,13 @@ export default function PatientAppointments() {
     });
   };
 
+  // Column definitions for the appointments table.
   const columns = [
     { key: 'title', label: 'Item / Doctor' },
-    { 
-      key: 'type', 
+    {
+      key: 'type',
       label: 'Type',
+      // Show a coloured badge to distinguish doctor visits from medication reminders.
       render: (val) => (
         <Badge variant={val === 'Doctor Visit' ? 'info' : 'primary'}>
           {val}
@@ -75,9 +93,10 @@ export default function PatientAppointments() {
     },
     { key: 'date', label: 'Date' },
     { key: 'time', label: 'Time' },
-    { 
-      key: 'status', 
+    {
+      key: 'status',
       label: 'Status',
+      // Completed reminders appear grey; all other statuses appear green (active/upcoming).
       render: (val) => (
         <span className={`px-3 py-1 rounded-full text-xs font-semibold ${val === 'completed' ? 'bg-gray-100 text-gray-800' : 'bg-green-100 text-green-800'}`}>
           {val}

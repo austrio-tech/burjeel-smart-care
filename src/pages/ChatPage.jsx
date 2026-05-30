@@ -1,3 +1,10 @@
+/*
+ * ChatPage.jsx
+ * This is the real-time messaging page used by all roles (admin, doctor, patient).
+ * It shows a list of conversations on the left and the full message thread on the right.
+ * Users can send messages to any other registered user in the system.
+ */
+
 import { useState, useEffect, useContext } from 'react';
 import { FiSend, FiSmile, FiPaperclip } from 'react-icons/fi';
 import Card from '../components/common/Card';
@@ -9,19 +16,28 @@ import * as chatService from '../services/chatService';
 import { useAuth } from '../hooks/useAuth';
 
 export default function ChatPage() {
+  // selectedConversation holds the conversation object currently open in the chat panel.
   const [selectedConversation, setSelectedConversation] = useState(null);
+  // message is the text currently typed in the message input box.
   const [message, setMessage] = useState('');
+  // conversations is the full list of conversations this user is part of.
   const [conversations, setConversations] = useState([]);
   const [loading, setLoading] = useState(true);
   const { error: showError } = useContext(AlertContext);
+  // user is used to determine which messages were sent by "me" (right-aligned vs. left-aligned).
   const { user } = useAuth();
 
+  /*
+   * Runs when the component mounts (and whenever user changes, though that's rare).
+   * Loads all conversations for the current user. Automatically opens the first one.
+   */
   useEffect(() => {
     const fetchConversations = async () => {
       setLoading(true);
       try {
         const data = await chatService.getConversations();
         setConversations(data);
+        // Automatically open the most recent conversation so the user sees something immediately.
         if (data.length > 0) {
           setSelectedConversation(data[0]);
         }
@@ -36,14 +52,17 @@ export default function ChatPage() {
     fetchConversations();
   }, [showError, user]);
 
+  // Sends the typed message to the other participant in the selected conversation.
+  // Updates the local state immediately so the new message appears without a page refresh.
   const handleSendMessage = async () => {
+    // Only send if the message box is not empty and a conversation is selected.
     if (message.trim() && selectedConversation) {
       try {
         const otherUser = selectedConversation.other_participant;
         const response = await chatService.sendMessage(otherUser.user_id, message.trim());
         const newMessage = response.data || response;
-        
-        // Update conversations with new message
+
+        // Append the new message to the correct conversation in the list.
         setConversations(prev => prev.map(conv => {
           if (conv.other_participant.user_id === otherUser.user_id) {
             return {
@@ -54,15 +73,16 @@ export default function ChatPage() {
           }
           return conv;
         }));
-        
-        // Re-sort by last message time
-        setConversations(prev => [...prev].sort((a, b) => 
+
+        // Re-sort the conversation list so the one with the newest message floats to the top.
+        setConversations(prev => [...prev].sort((a, b) =>
           new Date(b.last_message_time) - new Date(a.last_message_time)
         ));
-        
+
+        // Clear the input box after sending.
         setMessage('');
-        
-        // Update selected conversation
+
+        // Also update the currently open conversation so the new message appears in the chat panel.
         setSelectedConversation(prev => {
           if (prev && prev.other_participant.user_id === otherUser.user_id) {
             return {
@@ -162,10 +182,13 @@ export default function ChatPage() {
               <div className="flex-1 overflow-y-auto mb-4 space-y-4 px-2">
                 {selectedConversation.messages && selectedConversation.messages.length > 0 ? (
                   selectedConversation.messages.map((msg, idx) => (
+                    {/* Align sent messages to the right, received messages to the left. */}
                     <div
                       key={msg.message_id || idx}
                       className={`flex ${msg.sender_id === user?.user_id ? 'justify-end' : 'justify-start'}`}
                     >
+                      {/* Messages from the current user appear in the primary colour;
+                          messages from the other person appear in a light grey bubble. */}
                       <div
                         className={`
                           max-w-xs px-4 py-2 rounded-lg

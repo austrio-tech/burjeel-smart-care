@@ -1,3 +1,10 @@
+/*
+ * AdminDashboard.jsx
+ * This is the main home screen for users with the "admin" role.
+ * It shows a high-level summary of the hospital: total patients, reminders sent today,
+ * the attendance rate, and a table of the most recent SMS reminders.
+ */
+
 import { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FiUsers, FiBell, FiCheckCircle, FiTrendingUp } from 'react-icons/fi';
@@ -14,17 +21,26 @@ import * as reportsService from '../services/reportsService';
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
+  // loading controls whether the spinner is shown while data is being fetched.
   const [loading, setLoading] = useState(true);
+  // stats holds the four summary numbers shown in the top stat cards.
   const [stats, setStats] = useState({
     totalPatients: 0,
     remindersToday: 0,
     attendanceRate: 0,
     appointments: 0,
   });
+  // recentReminders holds the processed list shown in the reminder table.
   const [recentReminders, setRecentReminders] = useState([]);
   const { error } = useContext(AlertContext);
   const { exportData, isExporting } = useReportExport();
 
+  /*
+   * This effect runs once when the component first mounts (the empty-ish [error] dependency
+   * means it re-runs only if the error function reference changes, which is practically never).
+   * It fetches patients, reminders, and the attendance report in parallel using Promise.all
+   * (all three requests start at the same time to avoid waiting for each one in sequence).
+   */
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
@@ -37,6 +53,7 @@ export default function AdminDashboard() {
 
         setStats({
           totalPatients: patients.length,
+          // Count how many reminders have today's date by comparing the start of the ISO date string.
           remindersToday: reminders.filter(r => {
             const today = new Date().toISOString().split('T')[0];
             return r.scheduled_date && r.scheduled_date.startsWith(today);
@@ -47,10 +64,11 @@ export default function AdminDashboard() {
 
         setRecentReminders(
           reminders
-            .slice()
-            .sort((a, b) => new Date(b.scheduled_date) - new Date(a.scheduled_date))
-            .slice(0, 10)
+            .slice() // .slice() makes a shallow copy so we don't mutate the original array.
+            .sort((a, b) => new Date(b.scheduled_date) - new Date(a.scheduled_date)) // Newest first.
+            .slice(0, 10) // Only show the 10 most recent reminders in the table.
             .map(r => {
+            // Look up the patient object whose ID matches this reminder's patient_id.
             const patient = patients.find(p => p.patient_id === r.patient_id);
             return {
               id: r.reminder_id,
@@ -58,6 +76,7 @@ export default function AdminDashboard() {
               phone: patient?.phone_number || 'N/A',
               success: r.success_sent || 0,
               failed: r.failed_sent || 0,
+              // Display the date/time in the Asia/Muscat timezone (Oman local time).
               time: new Date(r.scheduled_date).toLocaleString('en-US', { timeZone: 'Asia/Muscat', hour12: true }),
             };
           })
@@ -73,12 +92,14 @@ export default function AdminDashboard() {
     fetchData();
   }, [error]);
 
+  // Column definitions for the reminders table — each object maps a data key to a column header.
   const columns = [
     { key: 'patientName', label: 'Patient Name' },
     { key: 'phone', label: 'Phone' },
     {
       key: 'status',
       label: 'Status',
+      // Custom render function: shows green "S" (success) and red "F" (failed) badges.
       render: (val, row) => (
         <span className="text-xs font-semibold">
           <span className="text-green-600 bg-green-100 px-2 py-1 rounded mr-1">S: {row.success}</span>
@@ -89,6 +110,7 @@ export default function AdminDashboard() {
     { key: 'time', label: 'Time' },
   ];
 
+  // Triggers a file download (CSV or PDF) of the current reminder table data.
   const handleExport = (format) => {
     exportData({
       data: recentReminders,

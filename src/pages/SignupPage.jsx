@@ -1,3 +1,10 @@
+/*
+ * SignupPage.jsx
+ * This is the account registration page for Burjeel Smart Care.
+ * New users (patients only — doctors and admins are created by admins) fill in this form
+ * to create their account and are then redirected to the login page.
+ */
+
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
@@ -11,6 +18,8 @@ import { FiMail, FiLock, FiUser, FiUserPlus } from 'react-icons/fi';
 import { APP_CONFIG } from '../utils/constants';
 
 export default function SignupPage() {
+  // formData collects all the fields needed to create a new account.
+  // The role is pre-set to 'patient' because only patients self-register.
   const [formData, setFormData] = useState({
     username: '',
     email: '',
@@ -18,12 +27,15 @@ export default function SignupPage() {
     confirmPassword: '',
     role: 'patient',
   });
+  // errors stores field-level validation messages shown beneath each input.
   const [errors, setErrors] = useState({});
+  // loading is true while the registration API call is running.
   const [loading, setLoading] = useState(false);
   const { register } = useAuth();
   const navigate = useNavigate();
   const { error: showError, success: showSuccess } = useContext(AlertContext);
 
+  // Validates all form fields before submitting. Returns true if everything is valid.
   const validateForm = () => {
     const newErrors = {};
 
@@ -43,6 +55,7 @@ export default function SignupPage() {
       newErrors.password = 'Password must be at least 8 characters';
     }
 
+    // Extra check: both password fields must match before we allow submission.
     if (formData.password !== formData.confirmPassword) {
       newErrors.confirmPassword = 'Passwords do not match';
     }
@@ -51,7 +64,10 @@ export default function SignupPage() {
     return Object.keys(newErrors).length === 0;
   };
 
+  // Handles the form submission: prevents page reload, validates, then calls the register API.
+  // On success the user is sent to /login to sign in with their new credentials.
   const handleSubmit = async (e) => {
+    // Prevents the default browser form-submit behaviour (page refresh).
     e.preventDefault();
 
     if (!validateForm()) return;
@@ -78,6 +94,8 @@ export default function SignupPage() {
     }
   };
 
+  // Keeps formData in sync as the user types into any input field.
+  // Also clears the error for that specific field while the user is editing it.
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({

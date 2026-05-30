@@ -1,3 +1,10 @@
+/*
+ * AttendancePage.jsx
+ * This page is used by admins and doctors to record and review patient attendance.
+ * Staff can mark a patient as present, absent, or late for a given date via a modal form.
+ * Summary stat cards at the top show the overall attendance rate.
+ */
+
 import { useState, useEffect, useContext } from 'react';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
@@ -11,25 +18,33 @@ import * as attendanceService from '../services/attendanceService';
 import * as patientService from '../services/patientService';
 
 export default function AttendancePage() {
+  // searchTerm filters the attendance log table by patient ID.
   const [searchTerm, setSearchTerm] = useState('');
+  // attendanceData is the full attendance log returned from the backend.
   const [attendanceData, setAttendanceData] = useState([]);
+  // patients is needed to populate the "Select Patient" dropdown in the form.
   const [patients, setPatients] = useState([]);
   const [loading, setLoading] = useState(true);
+  // isModalOpen controls whether the "Mark Attendance" form dialog is visible.
   const [isModalOpen, setIsModalOpen] = useState(false);
+  // submitting is true while the form is being saved, preventing double submissions.
   const [submitting, setSubmitting] = useState(false);
   const { error: showError, success: showSuccess } = useContext(AlertContext);
 
+  // formData holds the values in the Mark Attendance modal form.
   const [formData, setFormData] = useState({
     patient_id: '',
-    status: 'present',
-    appointment_date: new Date().toISOString().split('T')[0],
+    status: 'present', // Default status when opening the form.
+    appointment_date: new Date().toISOString().split('T')[0], // Default to today's date.
   });
 
+  // Column definitions for the attendance log table.
   const columns = [
     { key: 'patient_id', label: 'Patient ID' },
     {
       key: 'status',
       label: 'Status',
+      // Render a colour-coded pill: green for present/came, yellow for late, red for absent.
       render: (status) => (
         <span
           className={`px-3 py-1 rounded-full text-xs font-semibold ${
@@ -40,6 +55,7 @@ export default function AttendancePage() {
               : 'bg-red-100 text-red-800'
           }`}
         >
+          {/* Capitalise the first letter of the status for display (e.g. "present" → "Present"). */}
           {status.charAt(0).toUpperCase() + status.slice(1)}
         </span>
       ),
@@ -48,6 +64,7 @@ export default function AttendancePage() {
     { key: 'timestamp', label: 'Time', render: (t) => t ? new Date(t).toLocaleTimeString() : '-' },
   ];
 
+  // Loads the attendance log and patient list from the backend in parallel.
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -65,15 +82,18 @@ export default function AttendancePage() {
     }
   };
 
+  // Fetch attendance records when the page first loads.
   useEffect(() => {
     fetchData();
   }, []);
 
+  // Keeps formData in sync as the user changes any dropdown or date field.
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
+  // Saves the new attendance record. Validates that a patient has been selected first.
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.patient_id) {
@@ -84,10 +104,12 @@ export default function AttendancePage() {
     try {
       await attendanceService.createAttendance({
         ...formData,
+        // patient_id comes from a <select> as a string; parseInt converts it to a number.
         patient_id: parseInt(formData.patient_id)
       });
       showSuccess('Attendance marked successfully');
       setIsModalOpen(false);
+      // Reset form to defaults so the modal is clean next time it opens.
       setFormData({
         patient_id: '',
         status: 'present',
@@ -101,14 +123,18 @@ export default function AttendancePage() {
     }
   };
 
+  // Filter the attendance log by patient ID based on the search box input.
   const filteredData = attendanceData.filter((item) =>
     item.patient_id.toString().includes(searchTerm)
   );
 
+  // Calculate summary statistics from the filtered data for the stat cards.
+  // Both "present" and "came" mean the patient showed up (backend may use either value).
   const presentCount = filteredData.filter(a => a.status === 'present' || a.status === 'came').length;
   const absentCount = filteredData.filter(a => a.status === 'absent' || a.status === 'not came').length;
   const lateCount = filteredData.filter(a => a.status === 'late').length;
   const totalCount = filteredData.length;
+  // Attendance rate = present / total, shown as a percentage with one decimal place.
   const attendanceRate = totalCount > 0 ? ((presentCount / totalCount) * 100).toFixed(1) : 0;
 
   if (loading && attendanceData.length === 0) return <div className="flex items-center justify-center h-full">Loading...</div>;
