@@ -39,7 +39,14 @@ export default function ChatPage() {
         setConversations(data);
         // Automatically open the most recent conversation so the user sees something immediately.
         if (data.length > 0) {
-          setSelectedConversation(data[0]);
+          const first = data[0];
+          setSelectedConversation(first);
+          // Auto-opening a conversation counts as "reading" it — mark those messages as read.
+          if (first.unread_count > 0) {
+            chatService.markAsRead(first.other_participant.user_id).catch(console.error);
+            // Clear the badge in local state without waiting for the API to respond.
+            setConversations(prev => prev.map((c, i) => i === 0 ? { ...c, unread_count: 0 } : c));
+          }
         }
       } catch (err) {
         console.error('Error fetching conversations:', err);
@@ -51,6 +58,31 @@ export default function ChatPage() {
 
     fetchConversations();
   }, [showError, user]);
+
+  /*
+   * handleSelectConversation — Opens a conversation and marks any unread messages
+   * from the other participant as read in both the database and local state.
+   * This is the root cause fix: previously clicking a conversation only updated
+   * local state but never called the markAsRead API, so is_read stayed False forever.
+   */
+  const handleSelectConversation = async (conv) => {
+    setSelectedConversation(conv);
+    // Only hit the API if there are actually unread messages to clear.
+    if (conv.unread_count > 0) {
+      try {
+        await chatService.markAsRead(conv.other_participant.user_id);
+        // Immediately clear the red unread badge in the sidebar for this conversation.
+        setConversations(prev => prev.map(c =>
+          c.other_participant.user_id === conv.other_participant.user_id
+            ? { ...c, unread_count: 0 }
+            : c
+        ));
+      } catch (err) {
+        // Not critical enough to show an error toast — log silently.
+        console.error('Failed to mark messages as read:', err);
+      }
+    }
+  };
 
   // Sends the typed message to the other participant in the selected conversation.
   // Updates the local state immediately so the new message appears without a page refresh.
@@ -122,7 +154,7 @@ export default function ChatPage() {
                 return (
                   <button
                     key={otherUser.user_id}
-                    onClick={() => setSelectedConversation(conv)}
+                    onClick={() => handleSelectConversation(conv)}
                     className={`
                       w-full flex items-center gap-3 p-3 rounded-lg transition-colors
                       ${selectedConversation?.other_participant.user_id === otherUser.user_id 
