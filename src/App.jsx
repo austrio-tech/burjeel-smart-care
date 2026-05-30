@@ -118,14 +118,6 @@ export default function App() {
               </>
             )}
 
-            {/* IT Staff Routes */}
-            {user?.role === 'it_staff' && (
-              <>
-                <Route path="/it/dashboard" element={<AdminDashboard />} />
-                <Route path="/it/chat" element={<ChatPage />} />
-              </>
-            )}
-
             {/* Default Route — redirect "/" to the correct dashboard based on role.
                 The ?. (optional chaining) safely accesses user.role even if user is null. */}
             <Route

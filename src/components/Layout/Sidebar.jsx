@@ -4,7 +4,7 @@
  *
  * It reads the current user's role from the auth context and renders only
  * the navigation links that are relevant to that role (admin, patient,
- * doctor, or it_staff). It is rendered by Layout.jsx.
+ * or doctor). It is rendered by Layout.jsx.
  */
 
 import { useAuth } from '../../hooks/useAuth';
@@ -51,12 +51,6 @@ const navItems = {
     { label: 'Attendance', path: '/admin/attendance', icon: FiCheck },
     { label: 'Reports', path: '/admin/reports', icon: FiBarChart2 },
     { label: 'Chat', path: '/admin/chat', icon: FiMessageSquare },
-    { label: 'Settings', path: '/settings', icon: FiSettings },
-  ],
-  it_staff: [
-    { label: 'Dashboard', path: '/it/dashboard', icon: FiHome },
-    { label: 'System', path: '/it/system', icon: FiBarChart2 },
-    { label: 'Messages', path: '/it/chat', icon: FiMessageSquare },
     { label: 'Settings', path: '/settings', icon: FiSettings },
   ],
 };

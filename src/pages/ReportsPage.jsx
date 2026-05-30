@@ -1,6 +1,6 @@
 /*
  * ReportsPage.jsx
- * Analytics page visible to admins, doctors, pharmacists, and IT staff.
+ * Analytics page visible to admins and doctors.
  * Displays four stat cards with real period-over-period % changes, a bar chart of
  * attendance broken into time buckets, and a pie chart of reminder delivery outcomes.
  *

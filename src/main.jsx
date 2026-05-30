@@ -9,7 +9,6 @@ import ReactDOM from 'react-dom/client';
 import { BrowserRouter as Router } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { AlertProvider } from './contexts/AlertContext';
-import { ChatProvider } from './contexts/ChatContext';
 import App from './App';
 import './index.css';
 
@@ -19,7 +18,7 @@ const root = document.getElementById('root');
 /*
  * ReactDOM.createRoot starts React on the page.
  * The nested providers below follow the "Context" pattern — each provider
- * makes its data (auth state, alerts, chat) available to every child component
+ * makes its data (auth state, alerts) available to every child component
  * without passing props manually through every level of the tree.
  *
  * The order matters: outer providers are available to inner ones.
@@ -33,10 +32,7 @@ ReactDOM.createRoot(root).render(
       <AuthProvider>
         {/* AlertProvider shares toast/banner notifications with the whole app */}
         <AlertProvider>
-          {/* ChatProvider shares real-time chat state with the whole app */}
-          <ChatProvider>
-            <App />
-          </ChatProvider>
+          <App />
         </AlertProvider>
       </AuthProvider>
     </Router>
