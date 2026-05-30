@@ -286,13 +286,12 @@ export default function PatientsPage() {
               required
             />
             <Input
-              label="Email"
+              label="Email (optional)"
               type="email"
               name="email"
               value={formData.email}
               onChange={handleInputChange}
               icon={FiMail}
-              required
             />
             {!isEditModalOpen && (
               <Input
