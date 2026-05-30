@@ -1,6 +1,6 @@
 # Burjeel Smart Care — Frontend
 
-A React web application for managing patients, reminders, attendance, and communication at Burjeel Hospital. Different users (admin, doctor, patient, IT staff) each see a tailored dashboard with only the tools relevant to their role.
+A React web application for managing patients, reminders, attendance, and communication at Burjeel Hospital. Three user roles (admin, doctor, patient) each see a tailored dashboard with only the tools relevant to their role.
 
 ---
 
@@ -13,7 +13,6 @@ A React web application for managing patients, reminders, attendance, and commun
 | Routing | React Router v6 |
 | Styling | Tailwind CSS |
 | HTTP Requests | Axios |
-| Real-time Chat | Socket.IO client |
 | Charts | Recharts |
 | Icons | React Icons |
 | Export (CSV/Excel/PDF) | SheetJS, jsPDF, file-saver |
@@ -30,14 +29,11 @@ src/
 │
 ├── contexts/             # Shared state accessible anywhere in the app
 │   ├── AuthContext.jsx   # Who is logged in, login/logout logic
-│   ├── AlertContext.jsx  # Toast notification system (success, error, warning)
-│   └── ChatContext.jsx   # Real-time chat state and Socket.IO connection
+│   └── AlertContext.jsx  # Toast notification system (success, error, warning)
 │
 ├── hooks/                # Reusable logic extracted into functions
 │   ├── useAuth.js        # Easy access to the auth context
-│   ├── useSocket.js      # Easy access to the chat context
-│   ├── useReportExport.js# CSV / Excel / PDF export logic
-│   └── useFetch.js       # Generic fetch wrapper (legacy, mostly unused)
+│   └── useReportExport.js# CSV / Excel / PDF export logic
 │
 ├── services/             # All API calls to the backend — one file per topic
 │   ├── api.js            # Axios instance with auth token injection
@@ -45,9 +41,9 @@ src/
 │   ├── patientService.js # Create, read, update, delete patients
 │   ├── attendanceService.js # Mark and fetch attendance records
 │   ├── reminderService.js   # Schedule and send reminders
-│   ├── reportsService.js    # Attendance and reminder analytics
+│   ├── reportsService.js    # Attendance analytics (used by admin dashboard)
 │   ├── userService.js    # Admin user management
-│   └── chatService.js    # Conversations and messages
+│   └── chatService.js    # Conversations, messages, mark-as-read
 │
 ├── components/
 │   ├── Layout/           # The shell around every page
@@ -82,8 +78,7 @@ src/
 │   ├── ChatPage.jsx
 │   ├── PatientDoctorsPage.jsx
 │   ├── PatientAppointments.jsx
-│   ├── SettingsPage.jsx
-│   └── ITDashboard (via AdminDashboard)
+│   └── SettingsPage.jsx
 │
 └── utils/                # Pure helper functions
     ├── constants.js      # App-wide fixed values
@@ -101,8 +96,18 @@ When a user logs in, the backend returns a JWT token. The frontend stores that t
 ### Role-Based Routing
 `App.jsx` checks `user.role` and only renders routes that belong to that role. An admin cannot accidentally visit a patient page and vice versa. The sidebar in `Sidebar.jsx` mirrors this — each role has its own list of navigation links.
 
-### Real-time Chat
-`ChatContext` opens a Socket.IO connection to the backend when the user is logged in. Messages sent by others arrive instantly via the `message` event. Typing indicators use the `user_typing` event.
+| Role | Routes |
+|---|---|
+| `admin` | `/admin/dashboard`, `/admin/patients`, `/admin/doctors`, `/admin/attendance`, `/admin/reminders`, `/admin/reports`, `/admin/chat` |
+| `doctor` | `/doctor/dashboard`, `/admin/patients`, `/admin/reminders`, `/admin/attendance`, `/admin/reports`, `/admin/chat` |
+| `patient` | `/patient/dashboard`, `/patient/doctors`, `/patient/appointments`, `/patient/chat` |
+| all roles | `/settings` |
+
+### Chat
+`ChatPage` calls `chatService` directly for all messaging operations — no intermediate context layer. Opening a conversation automatically calls `PUT /api/v1/chat/messages/read` to mark incoming messages as read and clear the unread badge.
+
+### Reports & Analytics
+`ReportsPage` fetches all raw data once on mount (patients, reminders, attendance) and applies all filtering client-side. Switching the date range preset or clicking "Apply Filters" recomputes stat cards and both charts without any additional API calls. Percentage changes compare the selected period against the equally-long period immediately before it.
 
 ### Notifications
 `AlertContext` holds a list of active toast messages. Any component can call `success("Done!")` or `error("Something went wrong")` and a toast appears on screen and auto-dismisses after a few seconds.
@@ -132,6 +137,19 @@ The app expects the backend running at `http://localhost:8000`. Copy `.env.examp
 ## Deployment (Vercel)
 
 The `vercel.json` at the project root rewrites all URLs to `index.html`, which is required for React Router to work correctly when a user refreshes the page or lands directly on a route.
+
+```json
+{ "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }] }
+```
+
+## Deployment (Docker / nginx)
+
+The `Dockerfile` in the project root does a two-stage build: Node compiles the app, then nginx serves the `dist/` folder. The `nginx.conf` includes a `try_files` rule that handles SPA routing and proxies `/api/` requests to the backend container.
+
+```bash
+# From the backend directory (docker-compose.yml covers both services)
+docker-compose up --build
+```
 
 ---
 
